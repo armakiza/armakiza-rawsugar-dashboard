@@ -521,36 +521,59 @@
         });
 
         // --- ฟังก์ชันดึงข้อมูลจาก Google Sheets อัตโนมัติ ---
-        function autoLoadFromGoogleSheets() {
+        async function autoLoadFromGoogleSheets() {
             showToast('กำลังดึงข้อมูลล่าสุดจาก Google Sheets...', 'success');
             
             const welcomeBtn = document.querySelector('#main-empty-state button');
             if(welcomeBtn) welcomeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...';
 
-            if (GOOGLE_SHEET_DIM_URL && GOOGLE_SHEET_DIM_URL !== "วาง_LINK_CSV_ของไฟล์หมวดหมู่_ตรงนี้" && GOOGLE_SHEET_DIM_URL !== "") {
-                Papa.parse(GOOGLE_SHEET_DIM_URL, {
-                    download: true, header: true, skipEmptyLines: true,
-                    complete: function(results) { processDimData(results.data); loadFactSheet(); },
-                    error: function() { showToast('ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error'); loadFactSheet(); }
-                });
-            } else {
-                loadFactSheet();
-            }
-
-            function loadFactSheet() {
-                if(!GOOGLE_SHEET_FACT_URL || GOOGLE_SHEET_FACT_URL === "") return;
+            // ฟังก์ชันเสริมสำหรับดึงข้อมูลด้วย fetch แทน Papa.parse(download:true) เพื่อแก้ปัญหา CORS/Cache ของ Google
+            const fetchCSVData = async (url) => {
+                // เติม ?t=เวลา เพื่อป้องกันเบราว์เซอร์จำข้อมูลเก่า (Cache Busting)
+                const finalUrl = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+                const response = await fetch(finalUrl, { cache: 'no-store' });
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                const textData = await response.text();
                 
-                Papa.parse(GOOGLE_SHEET_FACT_URL, {
-                    download: true, header: true, skipEmptyLines: true,
-                    complete: function(results) { 
-                        processMasterFile(results.data); 
-                        document.getElementById('masterFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
-                        document.getElementById('masterFileName').classList.replace('bg-slate-700', 'bg-emerald-500');
+                return new Promise((resolve, reject) => {
+                    Papa.parse(textData, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) { resolve(results.data); },
+                        error: function(err) { reject(err); }
+                    });
+                });
+            };
+
+            try {
+                // 1. ดึงไฟล์หมวดหมู่ (DIM)
+                if (GOOGLE_SHEET_DIM_URL && GOOGLE_SHEET_DIM_URL !== "วาง_LINK_CSV_ของไฟล์หมวดหมู่_ตรงนี้" && GOOGLE_SHEET_DIM_URL !== "") {
+                    try {
+                        const dimData = await fetchCSVData(GOOGLE_SHEET_DIM_URL);
+                        await processDimData(dimData);
                         document.getElementById('dimFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
                         document.getElementById('dimFileName').classList.replace('bg-slate-700', 'bg-blue-500');
-                    },
-                    error: function() { showToast('ไม่สามารถดึงข้อมูลการผลิตได้ ลองตรวจสอบลิงก์', 'error'); }
-                });
+                    } catch (err) {
+                        console.error("Error loading DIM:", err);
+                        showToast('ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error');
+                    }
+                }
+
+                // 2. ดึงไฟล์การผลิตหลัก (FACT)
+                if (GOOGLE_SHEET_FACT_URL && GOOGLE_SHEET_FACT_URL !== "วาง_LINK_CSV_ของไฟล์ข้อมูลผลิต_ตรงนี้" && GOOGLE_SHEET_FACT_URL !== "") {
+                    try {
+                        const factData = await fetchCSVData(GOOGLE_SHEET_FACT_URL);
+                        await processMasterFile(factData);
+                        document.getElementById('masterFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
+                        document.getElementById('masterFileName').classList.replace('bg-slate-700', 'bg-emerald-500');
+                    } catch (err) {
+                        console.error("Error loading FACT:", err);
+                        showToast('ไม่สามารถดึงข้อมูลการผลิตได้', 'error');
+                        if(welcomeBtn) welcomeBtn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> ดึงข้อมูลล้มเหลว';
+                    }
+                }
+            } catch (err) {
+                console.error("Critical Error fetching sheets:", err);
             }
         }
 
