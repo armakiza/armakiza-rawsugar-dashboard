@@ -12,8 +12,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Chart.js DataLabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <!-- LocalForage for saving data in browser (IndexedDB) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -74,20 +72,16 @@
                     <label class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider w-[85px] shrink-0" title="รองรับทั้งไฟล์เดี่ยวและ 6 โรงงาน"><i class="fas fa-file-csv mr-1"></i> 1. ข้อมูลผลิต:</label>
                     <div class="relative w-[150px] group">
                         <input type="file" id="masterFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        <div id="masterFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">เชื่อมต่อ Google Sheets แล้ว</div>
+                        <div id="masterFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">คลิกเพื่อเลือกไฟล์ CSV</div>
                     </div>
                 </div>
                 <div class="flex items-center justify-between gap-2">
                     <label class="text-[10px] text-blue-400 font-bold uppercase tracking-wider w-[85px] shrink-0" title="ไฟล์โครงสร้าง Metric"><i class="fas fa-tags mr-1"></i> 2. หมวดหมู่:</label>
                     <div class="relative w-[150px] group">
                         <input type="file" id="dimFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        <div id="dimFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">เชื่อมต่อ Google Sheets แล้ว</div>
+                        <div id="dimFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">คลิกเพื่อเลือกไฟล์ CSV</div>
                     </div>
                 </div>
-                <!-- ปุ่มล้างข้อมูล Cache -->
-                <button id="clearCacheBtn" class="mt-1 text-[10px] text-rose-400 hover:text-rose-300 transition-colors font-bold tracking-wider flex items-center justify-center border border-rose-500/30 bg-rose-500/10 py-1 rounded">
-                    <i class="fas fa-trash-alt mr-1.5"></i> ล้างข้อมูลที่จำไว้ (Reset)
-                </button>
             </div>
 
             <!-- View Selector -->
@@ -112,7 +106,7 @@
                 <i class="fas fa-calendar-alt text-emerald-400 text-sm"></i>
                 <span class="text-xs font-bold text-slate-200 mr-1">Years:</span>
                 <div id="yearCheckboxContainer" class="flex flex-wrap gap-1.5 max-w-[280px] overflow-y-auto max-h-[70px] custom-scrollbar pr-1">
-                    <span class="text-[10px] text-slate-400 italic mt-1">รออัปโหลดข้อมูล</span>
+                    <span class="text-[10px] text-slate-400 italic mt-1">รอการอัปโหลดไฟล์ 1. ข้อมูลผลิต</span>
                 </div>
             </div>
         </div>
@@ -129,11 +123,11 @@
                 </div>
                 <h2 class="text-2xl font-black text-slate-800 mb-3 tracking-tight">เริ่มต้นใช้งาน Dashboard</h2>
                 <p class="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
-                    กำลังโหลดข้อมูล <span class="font-bold text-emerald-600">"แบบ Real-time"</span><br> 
-                    จาก Google Sheets...
+                    กรุณาอัปโหลดไฟล์ <span class="font-bold text-emerald-600">"1. ข้อมูลผลิต"</span><br> 
+                    (รองรับทั้งไฟล์ Fact ปกติ และไฟล์เปรียบเทียบ 6 หรือ 8 โรงงาน)
                 </p>
                 <button onclick="document.getElementById('masterFileInput').click()" class="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-emerald-500/30 transition-all transform hover:-translate-y-1">
-                    <i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...
+                    <i class="fas fa-upload mr-2"></i> อัปโหลดข้อมูลเริ่มต้น
                 </button>
             </div>
         </div>
@@ -319,7 +313,7 @@
                     <p class="text-slate-400 text-sm mt-1">ฟีเจอร์นี้จะทำงานอัตโนมัติเมื่อคุณอัปโหลดไฟล์ที่มีข้อมูลครบ 8 โรงงานในช่องที่ 1</p>
                 </div>
                 <div id="benchmark8-content" class="hidden space-y-6 mb-8">
-                     <!-- Benchmark 8 Controls & Charts -->
+                     <!-- Benchmark 8 Controls & Charts (Same structure as View 4) -->
                      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col xl:flex-row gap-4 items-center justify-between">
                         <div class="flex items-center space-x-3 w-full xl:w-auto">
                             <div class="bg-indigo-50 p-2 rounded-lg"><i class="fas fa-chart-pie text-indigo-600"></i></div>
@@ -485,95 +479,45 @@
         Chart.defaults.color = '#64748b';
 
         // --- 2. Initialization & Event Bindings ---
-        document.addEventListener("DOMContentLoaded", async () => {
+        document.addEventListener("DOMContentLoaded", () => {
             setupEventListeners();
             
-            // 1. ดึงข้อมูลแบบ Real-time จาก Google Sheets
             if (GOOGLE_SHEET_FACT_URL && GOOGLE_SHEET_FACT_URL !== "วาง_LINK_CSV_ของไฟล์ข้อมูลผลิต_ตรงนี้" && GOOGLE_SHEET_FACT_URL !== "") {
-                
-                // ดึงข้อมูลทันทีที่เปิดเว็บ
                 autoLoadFromGoogleSheets();
-                
-                // 2. ตั้งเวลาดึงข้อมูลใหม่อัตโนมัติ (Auto-Refresh) ทุกๆ 5 นาที (300,000 มิลลิวินาที)
-                // ทำให้จออัปเดตตลอดเวลาเมื่อเปิดค้างไว้ที่หน้างาน (สามารถเปลี่ยนตัวเลข 300000 เป็นตัวเลขอื่นได้ 1 วิ = 1000)
-                setInterval(() => {
-                    console.log("Auto-refreshing data from Google Sheets...");
-                    autoLoadFromGoogleSheets();
-                }, 300000); 
-
-            } else {
-                // ถ้าไม่มี Link หรือเน็ตหลุด ให้ไปเช็คข้อมูลจาก Cache ในเครื่อง (ที่เคยอัปโหลดไว้)
-                const cachedFact = await localforage.getItem('thip_fact_data');
-                const cachedDim = await localforage.getItem('thip_dim_data');
-
-                if (cachedDim) {
-                    processDimData(cachedDim, true); // โหลดจากแคช
-                    document.getElementById('dimFileName').innerText = "ข้อมูลหมวดหมู่ (จากหน่วยความจำ)";
-                    document.getElementById('dimFileName').classList.replace('bg-slate-700', 'bg-blue-500');
-                }
-
-                if (cachedFact) {
-                    processMasterFile(cachedFact, true); // โหลดจากแคช
-                    document.getElementById('masterFileName').innerText = "ข้อมูลผลิต (จากหน่วยความจำ)";
-                    document.getElementById('masterFileName').classList.replace('bg-slate-700', 'bg-emerald-500');
-                }
             }
         });
 
         // --- ฟังก์ชันดึงข้อมูลจาก Google Sheets อัตโนมัติ ---
-        async function autoLoadFromGoogleSheets() {
+        function autoLoadFromGoogleSheets() {
             showToast('กำลังดึงข้อมูลล่าสุดจาก Google Sheets...', 'success');
             
             const welcomeBtn = document.querySelector('#main-empty-state button');
             if(welcomeBtn) welcomeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...';
 
-            // ฟังก์ชันเสริมสำหรับดึงข้อมูลด้วย fetch แทน Papa.parse(download:true) เพื่อแก้ปัญหา CORS/Cache ของ Google
-            const fetchCSVData = async (url) => {
-                // เติม ?t=เวลา เพื่อป้องกันเบราว์เซอร์จำข้อมูลเก่า (Cache Busting)
-                const finalUrl = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                const response = await fetch(finalUrl, { cache: 'no-store' });
-                if (!response.ok) throw new Error("HTTP " + response.status);
-                const textData = await response.text();
-                
-                return new Promise((resolve, reject) => {
-                    Papa.parse(textData, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function(results) { resolve(results.data); },
-                        error: function(err) { reject(err); }
-                    });
+            if (GOOGLE_SHEET_DIM_URL && GOOGLE_SHEET_DIM_URL !== "วาง_LINK_CSV_ของไฟล์หมวดหมู่_ตรงนี้" && GOOGLE_SHEET_DIM_URL !== "") {
+                Papa.parse(GOOGLE_SHEET_DIM_URL, {
+                    download: true, header: true, skipEmptyLines: true,
+                    complete: function(results) { processDimData(results.data); loadFactSheet(); },
+                    error: function() { showToast('ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error'); loadFactSheet(); }
                 });
-            };
+            } else {
+                loadFactSheet();
+            }
 
-            try {
-                // 1. ดึงไฟล์หมวดหมู่ (DIM)
-                if (GOOGLE_SHEET_DIM_URL && GOOGLE_SHEET_DIM_URL !== "วาง_LINK_CSV_ของไฟล์หมวดหมู่_ตรงนี้" && GOOGLE_SHEET_DIM_URL !== "") {
-                    try {
-                        const dimData = await fetchCSVData(GOOGLE_SHEET_DIM_URL);
-                        await processDimData(dimData);
-                        document.getElementById('dimFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
-                        document.getElementById('dimFileName').classList.replace('bg-slate-700', 'bg-blue-500');
-                    } catch (err) {
-                        console.error("Error loading DIM:", err);
-                        showToast('ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error');
-                    }
-                }
-
-                // 2. ดึงไฟล์การผลิตหลัก (FACT)
-                if (GOOGLE_SHEET_FACT_URL && GOOGLE_SHEET_FACT_URL !== "วาง_LINK_CSV_ของไฟล์ข้อมูลผลิต_ตรงนี้" && GOOGLE_SHEET_FACT_URL !== "") {
-                    try {
-                        const factData = await fetchCSVData(GOOGLE_SHEET_FACT_URL);
-                        await processMasterFile(factData);
+            function loadFactSheet() {
+                if(!GOOGLE_SHEET_FACT_URL || GOOGLE_SHEET_FACT_URL === "") return;
+                
+                Papa.parse(GOOGLE_SHEET_FACT_URL, {
+                    download: true, header: true, skipEmptyLines: true,
+                    complete: function(results) { 
+                        processMasterFile(results.data); 
                         document.getElementById('masterFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
                         document.getElementById('masterFileName').classList.replace('bg-slate-700', 'bg-emerald-500');
-                    } catch (err) {
-                        console.error("Error loading FACT:", err);
-                        showToast('ไม่สามารถดึงข้อมูลการผลิตได้', 'error');
-                        if(welcomeBtn) welcomeBtn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> ดึงข้อมูลล้มเหลว';
-                    }
-                }
-            } catch (err) {
-                console.error("Critical Error fetching sheets:", err);
+                        document.getElementById('dimFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
+                        document.getElementById('dimFileName').classList.replace('bg-slate-700', 'bg-blue-500');
+                    },
+                    error: function() { showToast('ไม่สามารถดึงข้อมูลการผลิตได้ ลองตรวจสอบลิงก์', 'error'); }
+                });
             }
         }
 
@@ -699,6 +643,7 @@
             else return `(${tgtObj.condition} ${formatNum(tgtObj.value, decimals)}%)`;
         }
 
+        // --- RESTORED: THE MISSING EXTRACT METRIC FUNCTION ---
         function extractMetric(data, targetCol) {
             let colName = findCol(targetCol);
             let sum = 0, count = 0; let years = {}; let isPercent = false;
@@ -716,6 +661,7 @@
             return { name: colName || targetCol, avg: count > 0 ? sum / count : 0, years: years, isPercent: isPercent };
         }
 
+        // --- RESTORED: MISSING UI BUILDER FUNCTIONS ---
         function createMiniKPICard(title, metricData, unit = '', colorLineClass = 'bg-emerald-500', opts = {}) {
             const latestYear = selectedYears[selectedYears.length - 1];
             const prevYear = selectedYears.length > 1 ? selectedYears[selectedYears.length - 2] : null;
@@ -813,15 +759,9 @@
             `;
         }
 
-        // --- 4. Data Processing (Modified to save to cache) ---
-        async function processMasterFile(parsedData, isFromCache = false) {
+        // --- 4. Data Processing ---
+        function processMasterFile(parsedData) {
             try {
-                // บันทึกลงหน่วยความจำของเครื่อง (ถ้าไม่ได้กำลังโหลดจากแคช)
-                if (!isFromCache) {
-                    try { await localforage.setItem('thip_fact_data', parsedData); } 
-                    catch(e) { console.warn("ไม่สามารถบันทึกลงแคชได้", e); }
-                }
-
                 const data = normalizeCSV(parsedData);
                 if (data.length === 0) { showToast('ไฟล์ไม่มีข้อมูล', 'error'); return; }
 
@@ -920,7 +860,7 @@
 
                 rawFactData = Object.values(pivotMap);
                 if (rawFactData.length === 0) showToast('ไม่มีข้อมูลของ KPP เพื่อนำมาสร้างหน้าหลัก', 'warning');
-                else finalizeFactDataLoad(isFromCache ? 'โหลดข้อมูลผลิตจากหน่วยความจำสำเร็จ!' : 'โหลดข้อมูลเปรียบเทียบสำเร็จ!');
+                else finalizeFactDataLoad('โหลดข้อมูลเปรียบเทียบสำเร็จ!');
             } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาดในการประมวลผลไฟล์ 1', 'error'); }
         }
 
@@ -942,14 +882,8 @@
             showToast(msg, 'success');
         }
 
-        async function processDimData(parsedData, isFromCache = false) {
+        function processDimData(parsedData) {
             try {
-                // บันทึกลงหน่วยความจำของเครื่อง
-                if (!isFromCache) {
-                    try { await localforage.setItem('thip_dim_data', parsedData); } 
-                    catch(e) { console.warn("ไม่สามารถบันทึกลงแคชได้", e); }
-                }
-
                 const data = normalizeCSV(parsedData);
                 if(data.length === 0) return;
                 
@@ -966,7 +900,7 @@
                     Category: String(row[catCol]).trim(), Metric_Name: String(row[metricCol]).trim(),
                     Target: targetCol && row[targetCol] ? row[targetCol] : null, Condition: condCol && row[condCol] ? row[condCol] : null
                 }));
-                populateCompareSelect(); updateDashboard(); showToast(isFromCache ? 'โหลดข้อมูลหมวดหมู่จากหน่วยความจำสำเร็จ' : 'โหลดข้อมูลหมวดหมู่และเป้าหมาย (Dim) สำเร็จ', 'success');
+                populateCompareSelect(); updateDashboard(); showToast('โหลดข้อมูลหมวดหมู่และเป้าหมาย (Dim) สำเร็จ', 'success');
             } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาดในไฟล์ 2', 'error'); }
         }
 
@@ -1579,6 +1513,159 @@
             });
         }
 
+        // --- RESTORED: MISSING CHART AND TABLE RENDER FUNCTIONS ---
+        function renderGaugeCharts(data) {
+            const latestYear = selectedYears[selectedYears.length - 1];
+
+            const tgtPolExt = getMetricTarget('polextraction', 96.69, '≥');
+            const tgtMillLoss = getMetricTarget('millingloss', 4.0, '≤');
+            const tgtPrepIndex = getMetricTarget('preparationindex', 91.05, '≥');
+            const tgtFirstMill = getMetricTarget('firstmillextraction', 75.0, '≥');
+            const tgtPolBagasse = getMetricTarget('polbagasse', 1.65, '≤');
+            const tgtMoistBagasse = getMetricTarget('moisturebagasse', 48.0, '≤');
+
+            const polExtData = extractMetric(data, 'polextraction');
+            const millLossData = extractMetric(data, 'millingloss');
+            const piData = extractMetric(data, 'preparationindex');
+            const fmData = extractMetric(data, 'firstmillextraction');
+            const polBagasseData = extractMetric(data, 'polbagasse');
+            const moistureBagasseData = extractMetric(data, 'moisturebagasse');
+
+            const polExtLatest = polExtData.years[latestYear] !== undefined && polExtData.years[latestYear] !== null ? polExtData.years[latestYear] : 0;
+            const millLossLatest = millLossData.years[latestYear] !== undefined && millLossData.years[latestYear] !== null ? millLossData.years[latestYear] : 0;
+            const piLatest = piData.years[latestYear] !== undefined && piData.years[latestYear] !== null ? piData.years[latestYear] : 0;
+            const fmLatest = fmData.years[latestYear] !== undefined && fmData.years[latestYear] !== null ? fmData.years[latestYear] : 0;
+            const polBagasseLatest = polBagasseData.years[latestYear] !== undefined && polBagasseData.years[latestYear] !== null ? polBagasseData.years[latestYear] : 0;
+            const moistureBagasseLatest = moistureBagasseData.years[latestYear] !== undefined && moistureBagasseData.years[latestYear] !== null ? moistureBagasseData.years[latestYear] : 0;
+
+            document.getElementById('gaugePolYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeLossYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugePIYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeFMYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugePolBagasseYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeMoistureBagasseYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+
+            document.getElementById('gaugePolValue').innerText = formatNum(polExtLatest) + '%';
+            document.getElementById('gaugeLossValue').innerText = formatNum(millLossLatest) + '%';
+            document.getElementById('gaugePIValue').innerText = formatNum(piLatest) + '%';
+            document.getElementById('gaugeFMValue').innerText = formatNum(fmLatest) + '%';
+            document.getElementById('gaugePolBagasseValue').innerText = formatNum(polBagasseLatest) + '%';
+            document.getElementById('gaugeMoistureBagasseValue').innerText = formatNum(moistureBagasseLatest) + '%';
+
+            document.getElementById('gaugePolAvg').innerText = formatNum(polExtData.avg) + '%';
+            document.getElementById('gaugeLossAvg').innerText = formatNum(millLossData.avg) + '%';
+            document.getElementById('gaugePIAvg').innerText = formatNum(piData.avg) + '%';
+            document.getElementById('gaugeFMAvg').innerText = formatNum(fmData.avg) + '%';
+            document.getElementById('gaugePolBagasseAvg').innerText = formatNum(polBagasseData.avg) + '%';
+            document.getElementById('gaugeMoistureBagasseAvg').innerText = formatNum(moistureBagasseData.avg) + '%';
+
+            document.getElementById('gaugePolTargetText').innerText = formatTargetLabel(tgtPolExt);
+            document.getElementById('gaugeLossTargetText').innerText = formatTargetLabel(tgtMillLoss);
+            document.getElementById('gaugePITargetText').innerText = formatTargetLabel(tgtPrepIndex);
+            document.getElementById('gaugeFMTargetText').innerText = formatTargetLabel(tgtFirstMill);
+            document.getElementById('gaugePolBagasseTargetText').innerText = formatTargetLabel(tgtPolBagasse);
+            document.getElementById('gaugeMoistureBagasseTargetText').innerText = formatTargetLabel(tgtMoistBagasse);
+
+            drawGauge('gaugePIChart', piLatest, 100, checkTarget(piLatest, tgtPrepIndex));
+            drawGauge('gaugeFMChart', fmLatest, 100, checkTarget(fmLatest, tgtFirstMill));
+            drawGauge('gaugePolChart', polExtLatest, 100, checkTarget(polExtLatest, tgtPolExt));
+            drawGauge('gaugePolBagasseChart', polBagasseLatest, 5, checkTarget(polBagasseLatest, tgtPolBagasse));
+            drawGauge('gaugeMoistureBagasseChart', moistureBagasseLatest, 100, checkTarget(moistureBagasseLatest, tgtMoistBagasse));
+            drawGauge('gaugeLossChart', millLossLatest, 10, checkTarget(millLossLatest, tgtMillLoss)); 
+        }
+
+        function renderLossDoughnutChart(data) {
+            const ctx = document.getElementById('lossDoughnutChart').getContext('2d');
+            if (charts['lossDoughnut']) charts['lossDoughnut'].destroy();
+
+            const latestYear = selectedYears[selectedYears.length - 1];
+            const prevYear = selectedYears.length > 1 ? selectedYears[selectedYears.length - 2] : null;
+
+            const lossBagasse = extractMetric(data, 'lossinbagasse'); 
+            const lossFilter = extractMetric(data, 'lossinfiltercake'); 
+            const lossMolasses = extractMetric(data, 'lossinfinalmolasses');
+            const lossUndet = extractMetric(data, 'lossinundetermined');
+            const totalLoss = extractMetric(data, 'totalloss');
+
+            const valBagasse = lossBagasse.years[latestYear] || 0;
+            const valFilter = lossFilter.years[latestYear] || 0;
+            const valMolasses = lossMolasses.years[latestYear] || 0;
+            const valUndet = lossUndet.years[latestYear] || 0;
+            
+            const totalLatest = totalLoss.years[latestYear] !== undefined ? totalLoss.years[latestYear] : null;
+            const totalPrev = prevYear && totalLoss.years[prevYear] !== undefined ? totalLoss.years[prevYear] : null;
+
+            document.getElementById('lossDoughnutYear').innerText = `ปี ${latestYear || '-'}`;
+            document.getElementById('totalLossCenterValue').innerText = totalLatest !== null ? `${formatNum(totalLatest)}%` : '-';
+
+            charts['lossDoughnut'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: { 
+                    labels: ['Filter Cake', 'Bagasse', 'Final Molasses', 'Undetermined'], 
+                    datasets: [{ 
+                        data: [valFilter, valBagasse, valMolasses, valUndet], 
+                        backgroundColor: ['#8b5cf6', '#f59e0b', '#3b82f6', '#f43f5e'], 
+                        borderWidth: 2, 
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    cutout: '82%', 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: 'Sarabun', size: 10, weight: 'bold' }, padding: 15 } },
+                        datalabels: { 
+                            color: '#fff', 
+                            font: { size: 10, weight: 'bold' }, 
+                            formatter: (val) => val > 0 ? formatNum(val) + '%' : '',
+                            backgroundColor: (context) => context.dataset.backgroundColor[context.dataIndex],
+                            borderRadius: 4,
+                            padding: 2,
+                            display: function(context) { return context.dataset.data[context.dataIndex] > 1; } 
+                        } 
+                    }
+                }
+            });
+
+            const detailsContainer = document.getElementById('totalLossCenterDetails');
+            detailsContainer.innerHTML = '';
+            let detailsHtml = '';
+
+            if (totalLatest !== null && totalPrev !== null) {
+                let diff = totalLatest - totalPrev;
+                let colorClass = diff > 0 ? 'text-rose-500' : (diff < 0 ? 'text-emerald-500' : 'text-slate-400');
+                let icon = diff > 0 ? 'fa-caret-up' : (diff < 0 ? 'fa-caret-down' : 'fa-minus');
+                let sign = diff > 0 ? '+' : '';
+                
+                detailsHtml += `
+                    <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold ${colorClass} bg-slate-50/80 px-2.5 py-1 rounded-full shadow-sm border border-slate-100 mb-1.5 backdrop-blur-sm">
+                        <span class="text-[9px] text-slate-500 uppercase tracking-widest">YoY:</span>
+                        <i class="fas ${icon}"></i> ${sign}${formatNum(diff)}%
+                    </div>
+                `;
+            }
+
+            const tgtObj = getMetricTarget('totalloss', null, '');
+            if (tgtObj && tgtObj.value !== null && totalLatest !== null) {
+                let diffTgt = totalLatest - tgtObj.value;
+                let isTargetMet = checkTarget(totalLatest, tgtObj); 
+                let colorClass = isTargetMet ? 'text-emerald-500' : 'text-rose-500';
+                let sign = diffTgt > 0 ? '+' : '';
+                let icon = diffTgt > 0 ? 'fa-arrow-trend-up' : (diffTgt < 0 ? 'fa-arrow-trend-down' : 'fa-minus');
+
+                detailsHtml += `
+                    <div class="flex flex-col items-center pt-2 border-t border-slate-200/70 w-[80%] mx-auto">
+                        <span class="text-[10px] text-slate-500 font-medium tracking-wide">Target: <span class="font-bold text-slate-700">${formatTargetLabel(tgtObj)}</span></span>
+                        <span class="text-[10px] font-bold ${colorClass} flex items-center gap-1 mt-0.5"><span class="text-[9px] text-slate-400 font-medium">Gap:</span><i class="fas ${icon}"></i> ${sign}${formatNum(diffTgt)}%</span>
+                    </div>
+                `;
+            }
+            
+            detailsContainer.innerHTML = detailsHtml;
+        }
+
         function renderLineChart(data) {
             const ctx = document.getElementById('recoveryLineChart').getContext('2d');
             if (charts['recLine']) charts['recLine'].destroy();
@@ -1848,14 +1935,6 @@
 
         // --- 6. Event Listeners Binding ---
         function setupEventListeners() {
-            // Event ล้างข้อมูล Cache
-            document.getElementById('clearCacheBtn').addEventListener('click', async () => {
-                if (confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูล CSV ที่จำไว้ในเครื่องทั้งหมด? (ต้องอัปโหลดไฟล์ใหม่)')) {
-                    await localforage.clear();
-                    location.reload();
-                }
-            });
-
             document.getElementById('presetViewSelector').addEventListener('change', function(e) {
                 const val = e.target.value;
                 const sections = { 
