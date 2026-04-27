@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Sugar Production Dashboard - THIP SUGAR</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; background-color: #f4f7f6; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Premium Upload Button */
+        input[type=file]::file-selector-button {
+            border: 1px solid #94a3b8;
+            background: #ffffff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #334155;
+            cursor: pointer;
+            transition: all .2s ease-in-out;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        input[type=file]::file-selector-button:hover { background: #e2e8f0; border-color: #64748b; }
+        
+        /* Toast Animation */
+        @keyframes slideInUpRight {
+            from { transform: translate(100%, 20px); opacity: 0; }
+            to { transform: translate(0, 0); opacity: 1; }
+        }
+        .toast-enter { animation: slideInUpRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .force-hidden { display: none !important; }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden selection:bg-emerald-200 selection:text-emerald-900">
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+    <!-- Header & Global Filters -->
+    <header class="bg-gradient-to-r from-[#0f172a] to-[#1e293b] text-white shadow-lg z-20 flex flex-col xl:flex-row justify-between items-center px-6 py-3 border-b-4 border-emerald-500 gap-4">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3 w-full xl:w-auto justify-center xl:justify-start">
+            <div class="bg-gradient-to-br from-emerald-400 to-emerald-600 p-2.5 rounded-xl shadow-inner">
+                <i class="fas fa-industry text-2xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-xl font-black tracking-wider text-emerald-400 drop-shadow-sm">THIP SUGAR KAMPHAENGPHET CO., LTD.</h1>
+                <h2 class="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em] mt-0.5">Raw Sugar Production Dashboard</h2>
+            </div>
+        </div>
+
+        <!-- Filters & Upload (NEW Custom UI) -->
+        <div class="flex flex-col md:flex-row items-center gap-3 bg-slate-800/60 p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm w-full xl:w-auto overflow-x-auto custom-scrollbar">
+            
+            <!-- File Uploads (Custom Styled) -->
+            <div class="flex flex-col space-y-2.5 border-r border-slate-600/50 pr-4 min-w-[250px]">
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider w-[85px] shrink-0" title="รองรับทั้งไฟล์เดี่ยวและ 6 โรงงาน"><i class="fas fa-file-csv mr-1"></i> 1. ข้อมูลผลิต:</label>
+                    <div class="relative w-[150px] group">
+                        <input type="file" id="masterFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <div id="masterFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">คลิกเพื่อเลือกไฟล์ CSV</div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-[10px] text-blue-400 font-bold uppercase tracking-wider w-[85px] shrink-0" title="ไฟล์โครงสร้าง Metric"><i class="fas fa-tags mr-1"></i> 2. หมวดหมู่:</label>
+                    <div class="relative w-[150px] group">
+                        <input type="file" id="dimFileInput" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <div id="dimFileName" class="bg-slate-700 border border-slate-500 text-slate-300 text-[9px] font-semibold px-2 py-1.5 rounded-md truncate text-center shadow-sm transition-all duration-200 group-hover:bg-slate-600">คลิกเพื่อเลือกไฟล์ CSV</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View Selector -->
+            <div class="flex items-center space-x-2 border-r border-slate-600/50 pr-4 shrink-0">
+                <i class="fas fa-desktop text-blue-400 text-sm"></i>
+                <select id="presetViewSelector" class="text-xs font-semibold bg-slate-700 text-slate-100 border border-slate-600 rounded-lg p-1.5 w-[160px] shadow-sm focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
+                    <option value="all">แสดงทั้งหมด (All Views)</option>
+                    <option value="view0">0. ภาพรวมผลการดำเนินงาน</option>
+                    <option value="view1">1. ประสิทธิภาพกระบวนการหีบอ้อย</option>
+                    <option value="view5">2. ประสิทธิภาพกระบวนการ ต้ม เคี่ยว ปั่น</option>
+                    <option value="view6">3. ประสิทธิภาพรวมและการสูญเสีย</option>
+                    <option value="view4">4. เปรียบเทียบ 6 โรงงาน 🏆</option>
+                    <option value="view2">5. ตารางข้อมูลสถิติเชิงลึก</option>
+                    <option value="view3">6. โหมดเลือกเปรียบเทียบอิสระ</option>
+                </select>
+            </div>
+
+            <!-- Year Selector -->
+            <div class="flex items-center space-x-2 shrink-0">
+                <i class="fas fa-calendar-alt text-emerald-400 text-sm"></i>
+                <span class="text-xs font-bold text-slate-200 mr-1">Years:</span>
+                <div id="yearCheckboxContainer" class="flex flex-wrap gap-1.5 max-w-[280px] overflow-y-auto max-h-[70px] custom-scrollbar pr-1">
+                    <span class="text-[10px] text-slate-400 italic mt-1">รอการอัปโหลดไฟล์ 1. ข้อมูลผลิต</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Content -->
+    <main class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 bg-slate-50/50 relative">
+        
+        <!-- Welcome Screen (Empty State) -->
+        <div id="main-empty-state" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50/95 backdrop-blur-sm">
+            <div class="bg-white p-10 rounded-[2rem] shadow-xl text-center max-w-md border border-slate-100/50">
+                <div class="bg-emerald-50 text-emerald-500 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-emerald-100">
+                    <i class="fas fa-file-csv text-5xl"></i>
+                </div>
+                <h2 class="text-2xl font-black text-slate-800 mb-3 tracking-tight">เริ่มต้นใช้งาน Dashboard</h2>
+                <p class="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
+                    กรุณาอัปโหลดไฟล์ <span class="font-bold text-emerald-600">"1. ข้อมูลผลิต"</span><br> 
+                    (รองรับทั้งไฟล์ Fact ปกติ และไฟล์เปรียบเทียบ 6 โรงงาน)
+                </p>
+                <button onclick="document.getElementById('masterFileInput').click()" class="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg shadow-emerald-500/30 transition-all transform hover:-translate-y-1">
+                    <i class="fas fa-upload mr-2"></i> อัปโหลดข้อมูลเริ่มต้น
+                </button>
+            </div>
+        </div>
+
+        <div id="dashboard-content-wrapper" class="force-hidden pb-20">
+            <!-- Section 0: Executive KPIs / Scorecards -->
+            <div id="view0-container" class="dashboard-section block animate-fade-in">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-lg font-black text-slate-800 flex items-center tracking-tight drop-shadow-sm"><i class="fas fa-tachometer-alt mr-2.5 text-emerald-600"></i> ภาพรวมผลการดำเนินงาน (Executive KPIs)</h3>
+                    <span class="text-[10px] font-bold bg-emerald-100/80 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200 shadow-sm uppercase tracking-wide"><i class="fas fa-sync-alt mr-1"></i>อัปเดตตามปีที่เลือก</span>
+                </div>
+                <div id="kpi-container" class="space-y-6 mb-8"></div>
+            </div>
+
+            <!-- Section 1: เจาะลึกประสิทธิภาพกระบวนการหีบอ้อย (Milling House Deep Dive) -->
+            <div id="view1-container" class="dashboard-section block mt-8">
+                <h3 class="text-lg font-black text-slate-800 flex items-center mb-4 tracking-tight drop-shadow-sm"><i class="fas fa-cogs mr-2.5 text-teal-600"></i> 1. ประสิทธิภาพกระบวนการหีบอ้อย (Milling Performance & Efficiency)</h3>
+                
+                <!-- ROW 1: Gauge Charts (Core Targets) -->
+                <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-8 flex flex-col w-full mb-6">
+                    <h4 class="text-base font-black text-slate-800 mb-6 text-center uppercase tracking-wider pb-3 border-b border-slate-100"><i class="fas fa-bullseye text-teal-500 mr-2"></i> เป้าหมายประสิทธิภาพการสกัด (Extraction Targets)</h4>
+                    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10 items-start content-center mt-2">
+                        <!-- Row 1: PI, FM, POL -->
+                        <!-- Gauge 1: Preparation Index -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugePIChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugePIYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugePIValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    Preparation Index <br><span id="gaugePITargetText" class="text-teal-600">(&ge; 91.05%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugePIAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Gauge 2: First Mill Extraction -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugeFMChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugeFMYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugeFMValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    1st Mill Extraction <br><span id="gaugeFMTargetText" class="text-teal-600">(&ge; 75.00%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugeFMAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Gauge 3: POL Extraction -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugePolChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugePolYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugePolValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    POL Extraction <br><span id="gaugePolTargetText" class="text-teal-600">(> 96.69%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugePolAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Row 2: Pol Bagasse, Moisture Bagasse, Milling Loss -->
+                        <!-- Gauge 4: POL % Bagasse -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugePolBagasseChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugePolBagasseYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugePolBagasseValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    POL % Bagasse <br><span id="gaugePolBagasseTargetText" class="text-teal-600">(&le; 1.65%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugePolBagasseAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Gauge 5: Moisture % Bagasse -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugeMoistureBagasseChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugeMoistureBagasseYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugeMoistureBagasseValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    Moisture % Bagasse <br><span id="gaugeMoistureBagasseTargetText" class="text-teal-600">(&le; 48%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugeMoistureBagasseAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Gauge 6: Milling Loss -->
+                        <div class="flex flex-col items-center w-full max-w-[180px] mx-auto">
+                            <div class="relative w-full"><canvas id="gaugeLossChart"></canvas></div>
+                            <div class="text-center mt-[-15px] z-10 w-full">
+                                <span class="block text-[10px] text-teal-600 font-bold tracking-wider" id="gaugeLossYear">ปี -</span>
+                                <span class="block text-[26px] font-black text-slate-800 tracking-tighter leading-none my-0.5" id="gaugeLossValue">0%</span>
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold mt-1 leading-tight">
+                                    Milling Loss <br><span id="gaugeLossTargetText" class="text-teal-600">(&le; 4%)</span><br>
+                                    <span class="text-slate-400 normalcase">Avg:</span> <span id="gaugeLossAvg" class="text-slate-700">0%</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROW 2: KPI Cards (Control Parameters) -->
+                <!-- UPDATED GRID to grid-cols-1 md:grid-cols-2 lg:grid-cols-3 to fit 3 cards per row -->
+                <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-8 w-full mb-8">
+                    <h4 class="text-base font-black text-slate-800 mb-6 text-center uppercase tracking-wider pb-3 border-b border-slate-100"><i class="fas fa-sliders-h text-cyan-500 mr-2"></i> พารามิเตอร์ควบคุมชุดหีบ (Control Parameters)</h4>
+                    <div id="milling-kpi-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                </div>
+            </div>
+
+            <!-- Section 5: NEW! Boiling House & Clarifying Station -->
+            <div id="view5-container" class="dashboard-section block mt-8">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-lg font-black text-slate-800 flex items-center tracking-tight drop-shadow-sm"><i class="fas fa-flask mr-2.5 text-pink-500"></i> 2. ประสิทธิภาพกระบวนการ ต้ม เคี่ยว ปั่น (Boiling House Performance & Efficiency)</h3>
+                </div>
+                <div id="boiling-kpi-container" class="space-y-6 mb-8"></div>
+            </div>
+
+            <!-- Section 6: NEW! Overall Efficiency & Losses -->
+            <div id="view6-container" class="dashboard-section block mt-8">
+                <h3 class="text-lg font-black text-slate-800 flex items-center mb-4 tracking-tight drop-shadow-sm"><i class="fas fa-chart-pie mr-2.5 text-indigo-500"></i> 3. ประสิทธิภาพรวมและการสูญเสีย (Overall Efficiency & Losses)</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Doughnut Chart (Losses) -->
+                    <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 flex flex-col items-center">
+                        <h4 class="text-sm font-bold text-slate-700 mb-4 uppercase tracking-wider flex items-center w-full"><i class="fas fa-chart-pie text-amber-500 mr-2"></i> การสูญเสียในกระบวนการ (Losses) <span class="ml-auto text-xs font-medium text-slate-400" id="lossDoughnutYear">ปี -</span></h4>
+                        <div class="relative w-full max-w-[350px] mx-auto h-[350px] flex items-center justify-center">
+                            <canvas id="lossDoughnutChart"></canvas>
+                            <!-- Center Text for Total Loss & Details -->
+                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2 px-8">
+                                <span class="text-[11px] text-slate-400 font-bold uppercase tracking-widest mb-[-4px]">Total Loss</span>
+                                <span class="text-5xl font-black text-slate-800 tracking-tighter leading-none my-2 drop-shadow-sm" id="totalLossCenterValue">0%</span>
+                                <div id="totalLossCenterDetails" class="flex flex-col items-center w-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Line Chart -->
+                    <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6">
+                        <h4 class="text-sm font-bold text-slate-700 mb-4 uppercase tracking-wider flex items-center"><i class="fas fa-chart-line text-pink-500 mr-2"></i> แนวโน้มประสิทธิภาพรวม (Recovery Trends)</h4>
+                        <div class="h-[350px] w-full relative"><canvas id="recoveryLineChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Benchmarking -->
+            <div id="view4-container" class="dashboard-section block mt-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+                    <h3 class="text-lg font-black text-slate-800 flex items-center tracking-tight drop-shadow-sm"><i class="fas fa-trophy mr-2.5 text-amber-500"></i> 4. เปรียบเทียบประสิทธิภาพ 6 โรงงาน (Benchmarking)</h3>
+                </div>
+                
+                <div id="benchmark-empty-state" class="bg-white rounded-3xl border border-slate-200/60 border-dashed p-10 text-center mb-8 flex flex-col items-center justify-center">
+                    <div class="bg-slate-50 p-4 rounded-full mb-3"><i class="fas fa-industry text-3xl text-slate-300"></i></div>
+                    <h4 class="text-slate-500 font-bold text-lg">โหมดเปรียบเทียบปิดอยู่</h4>
+                    <p class="text-slate-400 text-sm mt-1">ฟีเจอร์นี้จะทำงานอัตโนมัติเมื่อคุณอัปโหลดไฟล์ที่มีข้อมูล 6 โรงงานในช่องที่ 1</p>
+                </div>
+
+                <div id="benchmark-content" class="hidden space-y-6 mb-8">
+                    <!-- Control Panel -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col xl:flex-row gap-4 items-center justify-between">
+                        <div class="flex items-center space-x-3 w-full xl:w-auto">
+                            <div class="bg-indigo-50 p-2 rounded-lg"><i class="fas fa-chart-pie text-indigo-600"></i></div>
+                            <div class="flex flex-col w-full md:w-auto">
+                                <!-- UPDATED: Added Legend/Visual Cues for Metric Filter -->
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">เลือกตัวแปรเปรียบเทียบ</label>
+                                    <span class="text-[9px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title="มีข้อมูลโรงงานอื่น">📊 เทียบได้</span>
+                                    <span class="text-[9px] font-medium text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200" title="มีเฉพาะของ TKP">🏢 เฉพาะ TKP</span>
+                                </div>
+                                <select id="benchmarkMetricSelect" class="text-sm font-bold text-slate-700 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 outline-none cursor-pointer w-full md:w-[350px] focus:ring-2 focus:ring-indigo-500 transition-all"></select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
+                            <!-- Rank 1 Card -->
+                            <div id="topPerformerCard" class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-5 py-2.5 w-full md:w-auto flex items-center gap-4 shadow-inner">
+                                <div class="text-amber-500 text-2xl"><i class="fas fa-medal"></i></div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] font-bold text-amber-600/80 uppercase">อันดับ 1 ปีล่าสุด (<span id="topPerformerYear">-</span>)</span>
+                                    <span class="text-sm font-black text-amber-700" id="topPerformerName">-</span>
+                                </div>
+                                <div class="ml-auto text-right pl-4 border-l border-amber-200/60">
+                                    <span class="text-lg font-black text-amber-600" id="topPerformerValue">-</span>
+                                </div>
+                            </div>
+                            
+                            <!-- New Diff with TKP Card -->
+                            <div id="diffTkpCard" class="hidden bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl px-5 py-2.5 w-full md:w-auto items-center gap-4 shadow-inner">
+                                <div class="text-blue-500 text-2xl"><i class="fas fa-bullseye"></i></div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] font-bold text-blue-600/80 uppercase">ส่วนต่าง อันดับ 1 เทียบ TKP</span>
+                                    <span class="text-[11px] font-black text-blue-700" id="diffTkpName">-</span>
+                                </div>
+                                <div class="ml-auto text-right pl-4 border-l border-blue-200/60">
+                                    <span class="text-[9px] font-bold text-blue-500 uppercase block mb-[-2px]">Gap</span>
+                                    <span class="text-lg font-black text-blue-600 leading-none" id="diffTkpValue">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart -->
+                    <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-6">
+                        <h4 class="text-sm font-bold text-slate-700 mb-4 uppercase tracking-wider" id="benchmarkChartTitle">กราฟเปรียบเทียบ (ปีล่าสุด -> ปีเก่าสุด)</h4>
+                        <div class="h-[400px] w-full relative"><canvas id="benchmarkBarChart"></canvas></div>
+                        <!-- Custom Legend for Dynamic Sorting -->
+                        <div id="benchmarkLegend" class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-6"></div>
+                    </div>
+
+                    <!-- Stacked Bar Chart for Total Loss Breakdown -->
+                    <div id="benchmarkLossBreakdownContainer" class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                                <i class="fas fa-layer-group text-rose-500 mr-2"></i> กราฟเปรียบเทียบการสูญเสีย 6 โรงงาน (Production Loss Comparison: 6 Factories)
+                            </h4>
+                            <span class="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-100 shadow-inner" id="lossBreakdownYear">ปี -</span>
+                        </div>
+                        <div class="h-[400px] w-full relative"><canvas id="benchmarkLossBreakdownChart"></canvas></div>
+                        <!-- Custom Legend -->
+                        <div id="lossBreakdownLegend" class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-4"></div>
+                    </div>
+
+                    <!-- NEW: 100% Stacked Bar Chart -->
+                    <div id="benchmarkLoss100Container" class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                                <i class="fas fa-percent text-blue-500 mr-2"></i> สัดส่วนองค์ประกอบการสูญเสีย (100% Proportion)
+                            </h4>
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 shadow-inner" id="loss100Year">ปี -</span>
+                        </div>
+                        <div class="h-[400px] w-full relative"><canvas id="benchmarkLoss100Chart"></canvas></div>
+                    </div>
+
+                    <!-- NEW: Waterfall Chart -->
+                    <div id="benchmarkWaterfallContainer" class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                            <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                                <i class="fas fa-water text-cyan-500 mr-2"></i> วิเคราะห์การสูญเสียสะสมแบบน้ำตก (Waterfall Chart - ปีล่าสุด)
+                            </h4>
+                            <span class="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-100 shadow-inner" id="waterfallYear">ปี -</span>
+                        </div>
+                        <div class="h-[400px] w-full relative"><canvas id="benchmarkWaterfallChart"></canvas></div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="px-6 py-4 bg-slate-50/50 border-b border-slate-100">
+                            <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider">ตารางข้อมูลสถิติ (เรียงจากปีล่าสุด)</h4>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-slate-600">
+                                <thead class="text-[11px] text-slate-500 uppercase bg-white border-b border-slate-200">
+                                    <tr id="benchmarkTableHeader"><th scope="col" class="px-6 py-3 font-bold tracking-wider">Factory</th></tr>
+                                </thead>
+                                <tbody id="benchmarkTableBody" class="divide-y divide-slate-50 font-medium"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Detailed Data Table -->
+            <div id="view2-container" class="dashboard-section block mt-4">
+                <h3 class="text-lg font-black text-slate-800 flex items-center mb-4 tracking-tight drop-shadow-sm"><i class="fas fa-table mr-2.5 text-purple-600"></i> 5. ตารางข้อมูลสถิติเชิงลึก (Detailed Data Table)</h3>
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="overflow-x-auto pb-4 custom-scrollbar">
+                        <table class="w-full text-[13px] text-left text-slate-600">
+                            <thead class="text-[10px] text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200 whitespace-nowrap">
+                                <tr>
+                                    <!-- FIXED: z-20 for header sticky to overlap z-10 body sticky -->
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider sticky left-0 bg-slate-50/95 backdrop-blur-sm z-20 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Corp Year</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">TONS CANE CRUSHED PLAN (Ton)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">TONS CANE CRUSHED ACTUAL (Ton)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">Fiber % Cane (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">C.C.S. (OCSB) (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">Pol % Cane (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">BOILING HOUSE RECOVERY (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">OVERALL RECOVERY (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">LOSS IN BAGASSE (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">LOSS IN FILTER CAKE (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">LOSS IN FINAL MOLASSES (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">LOSS IN UNDETERMINED (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">YIELD% 96 POL.10 C.C.S. (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">YIELD % C.C.S. (%)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">YIELD SUGAR (KG/TC)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">DUE TO MILLING (HR.)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">DUE TO BOILING HOUSE (HR.)</th>
+                                    <th scope="col" class="px-4 py-3 font-bold tracking-wider text-right">SUM DUE TO MILLING + BOILING HOUSE (HR.)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody" class="divide-y divide-slate-50 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Custom Compare -->
+            <div id="view3-container" class="dashboard-section block mt-8">
+                <h3 class="text-lg font-black text-slate-800 flex items-center mb-4 tracking-tight drop-shadow-sm"><i class="fas fa-chart-area mr-2.5 text-pink-500"></i> 6. โหมดเลือกตัวแปรเปรียบเทียบอิสระ (Custom Compare)</h3>
+                <div class="bg-white rounded-3xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 p-6 mb-8">
+                    <div class="flex flex-col lg:flex-row items-start lg:items-center mb-6 gap-4 w-full">
+                        <div class="flex items-center space-x-3 bg-emerald-50/80 px-4 py-2.5 rounded-xl border border-emerald-100/50 shadow-sm shrink-0">
+                            <i class="fas fa-seedling text-emerald-600"></i>
+                            <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">แกนหลัก (Bar): TONS CANE CRUSHED</span>
+                        </div>
+                        <div class="flex items-center justify-center bg-slate-100 h-8 w-8 rounded-full font-bold text-slate-400 text-xs shadow-inner shrink-0 hidden lg:flex">VS</div>
+                        
+                        <div class="flex flex-col sm:flex-row xl:flex-row gap-3 w-full flex-1">
+                            <!-- Line 1 Dropdown -->
+                            <div class="flex flex-col flex-1 bg-pink-50/50 px-3 py-2 rounded-xl border border-pink-100 shadow-sm">
+                                <div class="flex items-center mb-1">
+                                    <i class="fas fa-chart-line text-pink-600 mr-2"></i>
+                                    <label class="text-[10px] font-bold text-pink-800 uppercase tracking-wider">แกนรอง 1 (Line 1):</label>
+                                </div>
+                                <select id="customCompareSelect" class="text-xs font-bold border-pink-200 rounded-lg shadow-sm border p-1.5 w-full focus:ring-2 focus:ring-pink-300 outline-none bg-white text-slate-700"></select>
+                            </div>
+                            <!-- Line 2 Dropdown -->
+                            <div class="flex flex-col flex-1 bg-purple-50/50 px-3 py-2 rounded-xl border border-purple-100 shadow-sm">
+                                <div class="flex items-center mb-1">
+                                    <i class="fas fa-chart-line text-purple-600 mr-2"></i>
+                                    <label class="text-[10px] font-bold text-purple-800 uppercase tracking-wider">แกนรอง 2 (Line 2):</label>
+                                </div>
+                                <select id="customCompareSelect2" class="text-xs font-bold border-purple-200 rounded-lg shadow-sm border p-1.5 w-full focus:ring-2 focus:ring-purple-300 outline-none bg-white text-slate-700">
+                                    <option value="">-- ไม่เลือก (None) --</option>
+                                </select>
+                            </div>
+                            <!-- Line 3 Dropdown -->
+                            <div class="flex flex-col flex-1 bg-amber-50/50 px-3 py-2 rounded-xl border border-amber-100 shadow-sm">
+                                <div class="flex items-center mb-1">
+                                    <i class="fas fa-chart-line text-amber-600 mr-2"></i>
+                                    <label class="text-[10px] font-bold text-amber-800 uppercase tracking-wider">แกนรอง 3 (Line 3):</label>
+                                </div>
+                                <select id="customCompareSelect3" class="text-xs font-bold border-amber-200 rounded-lg shadow-sm border p-1.5 w-full focus:ring-2 focus:ring-amber-300 outline-none bg-white text-slate-700">
+                                    <option value="">-- ไม่เลือก (None) --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-[450px] w-full relative"><canvas id="customCompareChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- 1. Global Variables ---
+        let rawFactData = [];
+        let dimMappingData = [];
+        let benchmarkData = {}; 
+        let benchmarkFactories = [];
+        let benchmarkMetricsList = [];
+        let isBenchmarkLoaded = false;
+        let availableYears = [];
+        let selectedYears = [];
+        let charts = {};
+
+        // --- ตั้งค่า Google Sheets URL ตรงนี้ ---
+        // นำลิงก์ที่ได้จากขั้นตอนที่ 1 มาวางในเครื่องหมายคำพูดด้านล่างนี้
+        const GOOGLE_SHEET_FACT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRS5FO74JkDbW6qMe_-64zRyV1uCIpYZhZ94lZufjR5ML_26jmZuntl0pKytn8EYYOHyvyYkFFBiaSZ/pub?gid=0&single=true&output=csv";
+        const GOOGLE_SHEET_DIM_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRS5FO74JkDbW6qMe_-64zRyV1uCIpYZhZ94lZufjR5ML_26jmZuntl0pKytn8EYYOHyvyYkFFBiaSZ/pub?gid=629878877&single=true&output=csv";
+
+        // Register Chart.js Plugin
+        if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
+        Chart.defaults.font.family = 'Sarabun';
+        Chart.defaults.color = '#64748b';
+
+        // --- 2. Initialization & Event Bindings ---
+        document.addEventListener("DOMContentLoaded", () => {
+            setupEventListeners();
+            
+            // เรียกใช้ฟังก์ชันดึงข้อมูลอัตโนมัติเมื่อเปิดเว็บ
+            if (GOOGLE_SHEET_FACT_URL && GOOGLE_SHEET_FACT_URL !== "วาง_LINK_CSV_ของไฟล์ข้อมูลผลิต_ตรงนี้") {
+                autoLoadFromGoogleSheets();
+            }
+        });
+
+        // --- ฟังก์ชันดึงข้อมูลจาก Google Sheets อัตโนมัติ ---
+        function autoLoadFromGoogleSheets() {
+            showToast('กำลังดึงข้อมูลล่าสุดจาก Google Sheets...', 'success');
+            
+            // เปลี่ยนข้อความหน้า Welcome Screen
+            const welcomeBtn = document.querySelector('#main-empty-state button');
+            if(welcomeBtn) welcomeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...';
+
+            // ดึงไฟล์ Dim (หมวดหมู่) ก่อน ถ้ามี
+            if (GOOGLE_SHEET_DIM_URL && GOOGLE_SHEET_DIM_URL !== "วาง_LINK_CSV_ของไฟล์หมวดหมู่_ตรงนี้") {
+                Papa.parse(GOOGLE_SHEET_DIM_URL, {
+                    download: true, // สั่งให้ดาวน์โหลดจาก URL
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) { 
+                        processDimData(results.data); 
+                        loadFactSheet(); // ดึง Fact ต่อหลังจากดึง Dim เสร็จ
+                    },
+                    error: function() { showToast('ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error'); loadFactSheet(); }
+                });
+            } else {
+                loadFactSheet();
+            }
+
+            // ฟังก์ชันดึงไฟล์ Fact (ข้อมูลผลิต)
+            function loadFactSheet() {
+                Papa.parse(GOOGLE_SHEET_FACT_URL, {
+                    download: true, // สั่งให้ดาวน์โหลดจาก URL
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) { 
+                        processMasterFile(results.data); 
+                        // อัปเดต UI ว่าดึงมาจาก Sheet
+                        document.getElementById('masterFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
+                        document.getElementById('masterFileName').classList.replace('bg-slate-700', 'bg-emerald-500');
+                        document.getElementById('dimFileName').innerText = "เชื่อมต่อ Google Sheets แล้ว";
+                        document.getElementById('dimFileName').classList.replace('bg-slate-700', 'bg-blue-500');
+                    },
+                    error: function() { showToast('ไม่สามารถดึงข้อมูลการผลิตได้ ลองตรวจสอบลิงก์', 'error'); }
+                });
+            }
+        }
+
+        // --- 3. Advanced Utilities ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const icon = type === 'success' ? '<i class="fas fa-check-circle text-emerald-500 text-xl"></i>' : (type === 'warning' ? '<i class="fas fa-exclamation-triangle text-amber-500 text-xl"></i>' : '<i class="fas fa-exclamation-circle text-rose-500 text-xl"></i>');
+            const bgClass = type === 'success' ? 'bg-white/95 border-emerald-200 text-emerald-800 border-l-emerald-500' : (type === 'warning' ? 'bg-white/95 border-amber-200 text-amber-800 border-l-amber-500' : 'bg-white/95 border-rose-200 text-rose-800 border-l-rose-500');
+            
+            toast.className = `toast-enter flex items-center gap-3.5 px-5 py-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-l-4 ${bgClass} backdrop-blur-md min-w-[280px] mb-2`;
+            toast.innerHTML = `${icon} <span class="text-[13px] font-bold tracking-wide">${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                toast.style.transform = 'translate(100%, 0)'; 
+                toast.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'; 
+                setTimeout(() => toast.remove(), 400); 
+            }, 4000);
+        }
+
+        function cleanStr(s) {
+            return String(s).replace(/[^a-zA-Z0-9ก-๙]/g, '').toLowerCase();
+        }
+
+        function normalizeCSV(data) {
+            if (!data || data.length === 0) return [];
+            return data.map(row => {
+                const cleanRow = {};
+                for (let key in row) {
+                    if (key) {
+                        const cleanKey = key.replace(/[\uFEFF\u200B]/g, '').trim();
+                        cleanRow[cleanKey] = row[key];
+                    }
+                }
+                return cleanRow;
+            });
+        }
+
+        function cleanNumber(val) {
+            if (val === undefined || val === null || val === '') return null;
+            if (typeof val === 'number') return val;
+            let str = String(val).replace(/,/g, '').replace(/%/g, '').replace(/"/g, '').trim();
+            if (str === '' || str === '-') return null;
+            let num = parseFloat(str);
+            return isNaN(num) ? null : num;
+        }
+
+        // UPDATED: formatNum to accept an optional decimal places parameter
+        function formatNum(num, decimalPlaces = 2) {
+            if (num === null || num === undefined || isNaN(num) || num === '') return '-';
+            return Number(num).toLocaleString('en-US', { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces });
+        }
+
+        function findCol(keyPart) {
+            if(!rawFactData || rawFactData.length === 0) return null;
+            const keys = Object.keys(rawFactData[0]);
+            const target = cleanStr(keyPart);
+            
+            // 1. Exact Match first
+            let exactMatch = keys.find(k => cleanStr(k) === target);
+            if (exactMatch) return exactMatch;
+            
+            // 2. Strict Smart Matching to avoid overlap
+            if (target === 'mixedjuice' || target === 'mixedjuiceton') {
+                let match = keys.find(k => {
+                    let cleanedK = cleanStr(k);
+                    // Must have 'mixedjuice', but NOT '% cane' and NOT 'purity drop'
+                    return cleanedK.includes('mixedjuice') && !cleanedK.includes('cane') && !cleanedK.includes('puritydrop');
+                });
+                if (match) return match;
+            }
+            if (target === 'puritydropmixedjuice') {
+                let match = keys.find(k => cleanStr(k).includes('puritydrop') && cleanStr(k).includes('mixedjuice'));
+                if (match) return match;
+            }
+            if (target === 'finalmolasses' || target === 'finalmolasseskgtc') {
+                let match = keys.find(k => {
+                    let cleanedK = cleanStr(k);
+                    return cleanedK.includes('finalmolasses') && !cleanedK.includes('brix') && !cleanedK.includes('purity') && !cleanedK.includes('loss');
+                });
+                if (match) return match;
+            }
+            if (target === 'fiber' || target === 'fibercane') {
+                let match = keys.find(k => cleanStr(k).includes('fiber') && !cleanStr(k).includes('imbibition'));
+                if (match) return match;
+            }
+            
+            // Typo handling for EXHAUSTION vs EXHAUTION
+            if (target.includes('exhaustion') || target.includes('exhaution')) {
+                let massType = target.includes('amass') ? 'amass' : (target.includes('bmass') ? 'bmass' : 'cmass');
+                let match = keys.find(k => cleanStr(k).includes('exhau') && cleanStr(k).includes(massType));
+                if (match) return match;
+            }
+
+            // NEW: Typo handling for STEAM CONSUMPTION
+            if (target.includes('steam')) {
+                let match = keys.find(k => cleanStr(k).includes('steam')); // catches 'steamconsumption' and 'steamconsumtion'
+                if (match) return match;
+            }
+            
+            // 3. Fallback partial match
+            let partialMatch = keys.find(k => cleanStr(k).includes(target));
+            if (partialMatch) return partialMatch;
+
+            if (target.includes('yieldccs')) return keys.find(k => cleanStr(k).includes('yieldccs'));
+            if (target.includes('sjm')) return keys.find(k => cleanStr(k).includes('sjm') && cleanStr(k).includes(target.includes('avail') ? 'avail' : 'kg'));
+
+            return null;
+        }
+
+        // --- NEW: Helper to get Target from Dim Mapping (Supports +- Tolerance) ---
+        function getMetricTarget(metricNamePart, defaultTarget, defaultCondition) {
+            if (!dimMappingData || dimMappingData.length === 0) return { value: defaultTarget, condition: defaultCondition, isRange: false };
+            
+            const target = cleanStr(metricNamePart);
+            let found = null;
+
+            // Typo handling for EXHAUSTION vs EXHAUTION
+            if (target.includes('exhaustion') || target.includes('exhaution')) {
+                let massType = target.includes('amass') ? 'amass' : (target.includes('bmass') ? 'bmass' : 'cmass');
+                found = dimMappingData.find(d => cleanStr(d.Metric_Name).includes('exhau') && cleanStr(d.Metric_Name).includes(massType));
+            } else if (target.includes('steam')) {
+                 found = dimMappingData.find(d => cleanStr(d.Metric_Name).includes('steam'));
+            } else {
+                found = dimMappingData.find(d => cleanStr(d.Metric_Name).includes(target));
+            }
+            
+            if (found && found.Target !== null && found.Target !== undefined && found.Target !== '') {
+                let cond = found.Condition ? String(found.Condition).trim() : defaultCondition;
+                let valStr = String(found.Target).trim();
+                let baseVal = parseFloat(valStr);
+
+                // Convert verbose comparison symbols to clean math symbols
+                if (cond === '>=' || cond === '=>') {
+                    cond = '≥';
+                } else if (cond === '<=' || cond === '=<') {
+                    cond = '≤';
+                } else if (cond === '+-') {
+                    cond = '±';
+                }
+
+                // Handle +- (Range/Tolerance) e.g., Condition = "+-5"
+                if (cond.includes('+-') || cond.includes('±')) {
+                    let tolerance = parseFloat(cond.replace(/[^0-9.]/g, ''));
+                    // If target was given as '-0.01' or similar in Condition without '+-'
+                    if(isNaN(tolerance)) {
+                        tolerance = Math.abs(parseFloat(cond));
+                    }
+
+                    if (!isNaN(baseVal) && !isNaN(tolerance)) {
+                        return { 
+                            value: baseVal, 
+                            condition: '±', 
+                            isRange: true, 
+                            tolerance: tolerance, 
+                            min: baseVal - tolerance, 
+                            max: baseVal + tolerance 
+                        };
+                    }
+                }
+
+                return { value: baseVal, condition: cond, isRange: false };
+            }
+            // Return default with cleaned symbols just in case defaults use them
+            let cleanDefCond = defaultCondition;
+            if (cleanDefCond === '>=') cleanDefCond = '≥';
+            if (cleanDefCond === '<=') cleanDefCond = '≤';
+            return { value: defaultTarget, condition: cleanDefCond, isRange: false };
+        }
+
+        // Helper to check if Target is met
+        function checkTarget(actual, tgtObj) {
+            if (tgtObj.isRange) {
+                return actual >= tgtObj.min && actual <= tgtObj.max;
+            } else {
+                if (tgtObj.condition.includes('<') || tgtObj.condition.includes('≤')) return actual <= tgtObj.value;
+                if (tgtObj.condition.includes('>') || tgtObj.condition.includes('≥')) return actual >= tgtObj.value;
+                return actual >= tgtObj.value; // Default Fallback
+            }
+        }
+
+        // Helper to format Target text for UI
+        function formatTargetLabel(tgtObj, decimals = 2) {
+            if (tgtObj.isRange) {
+                return `(${formatNum(tgtObj.value, decimals)}% ± ${formatNum(tgtObj.tolerance, decimals)}%)`;
+            } else {
+                return `(${tgtObj.condition} ${formatNum(tgtObj.value, decimals)}%)`;
+            }
+        }
+
+        // --- 4. Data Processing ---
+        function processMasterFile(parsedData) {
+            try {
+                const data = normalizeCSV(parsedData);
+                if (data.length === 0) { showToast('ไฟล์ไม่มีข้อมูล', 'error'); return; }
+
+                const keys = Object.keys(data[0]);
+                const keysClean = keys.map(cleanStr);
+
+                // 1. Identify key columns
+                const factoryCol = keys.find(k => cleanStr(k) === 'factory' || cleanStr(k) === 'โรงงาน');
+                const yearCol = keys.find(k => cleanStr(k).includes('year') || cleanStr(k).includes('ปี')) || keys[0];
+                
+                // 2. Identify if it's LONG format (has 'Metric' and 'Value' columns)
+                const metricCol = keys.find(k => cleanStr(k).includes('metric'));
+                const valCol = keys.find(k => cleanStr(k) === 'value' || cleanStr(k) === 'ค่า');
+                const isUnpivoted = metricCol && valCol;
+
+                benchmarkData = {}; 
+                let factorySet = new Set();
+                let metricSet = new Set();
+                let currentYearByFactory = {};
+                let pivotMap = {}; 
+
+                if (isUnpivoted && factoryCol) {
+                    // FORMAT A: Long Format (Multi-factory, Unpivoted)
+                    data.forEach(row => {
+                        const metric = String(row[metricCol] || "").trim();
+                        const valueStr = row[valCol];
+                        const factory = String(row[factoryCol] || "").trim();
+                        if (!metric || !factory) return;
+
+                        factorySet.add(factory);
+                        if (!benchmarkData[factory]) benchmarkData[factory] = {};
+
+                        if (cleanStr(metric).includes("corpyear") || cleanStr(metric).includes('ปีการผลิต')) {
+                            const year = String(valueStr).trim();
+                            currentYearByFactory[factory] = year;
+                            if (cleanStr(factory).includes('tkp') || cleanStr(factory).includes('ทิพย์กำแพงเพชร')) {
+                                if (!pivotMap[year]) pivotMap[year] = { "Corp Year": year };
+                            }
+                        } else {
+                            const year = currentYearByFactory[factory];
+                            if (year) {
+                                if (!benchmarkData[factory][year]) benchmarkData[factory][year] = {};
+                                benchmarkData[factory][year][metric] = cleanNumber(valueStr);
+                                metricSet.add(metric);
+                                
+                                if (cleanStr(factory).includes('tkp') || cleanStr(factory).includes('ทิพย์กำแพงเพชร')) {
+                                    if (!pivotMap[year]) pivotMap[year] = { "Corp Year": year };
+                                    pivotMap[year][metric] = valueStr; 
+                                }
+                            }
+                        }
+                    });
+                } else if (factoryCol) {
+                    // FORMAT B: Wide Format (Multi-factory) -> THE NEW EXCEL-LIKE FILE
+                    data.forEach(row => {
+                        const factory = String(row[factoryCol] || "").trim();
+                        const year = String(row[yearCol] || "").trim();
+                        if (!factory || !year) return;
+
+                        factorySet.add(factory);
+                        if (!benchmarkData[factory]) benchmarkData[factory] = {};
+                        if (!benchmarkData[factory][year]) benchmarkData[factory][year] = {};
+
+                        keys.forEach(k => {
+                            if (k !== factoryCol && k !== yearCol) {
+                                benchmarkData[factory][year][k] = cleanNumber(row[k]);
+                                metricSet.add(k);
+                            }
+                        });
+
+                        // Filter TKP for main dashboard
+                        if (cleanStr(factory).includes('tkp') || cleanStr(factory).includes('ทิพย์กำแพงเพชร')) {
+                            if (!pivotMap[year]) pivotMap[year] = { "Corp Year": year };
+                            keys.forEach(k => {
+                                if (k !== factoryCol && k !== yearCol) {
+                                    pivotMap[year][k] = row[k]; 
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    // FORMAT C: Wide Format (Single-factory TKP Only)
+                    data.forEach(row => {
+                        const year = String(row[yearCol] || "").trim();
+                        if (!year) return;
+                        if (!pivotMap[year]) pivotMap[year] = { "Corp Year": year };
+                        keys.forEach(k => {
+                            if (k !== yearCol) pivotMap[year][k] = row[k];
+                        });
+                    });
+                }
+
+                benchmarkFactories = Array.from(factorySet);
+                benchmarkMetricsList = Array.from(metricSet).filter(m => !cleanStr(m).includes('วันเปิด') && !cleanStr(m).includes('วันปิด') && !cleanStr(m).includes('จำนวนวัน'));
+                isBenchmarkLoaded = benchmarkFactories.length > 0;
+
+                if(isBenchmarkLoaded) {
+                    document.getElementById('benchmark-empty-state').classList.add('hidden');
+                    document.getElementById('benchmark-content').classList.remove('hidden');
+                } else {
+                    document.getElementById('benchmark-empty-state').classList.remove('hidden');
+                    document.getElementById('benchmark-content').classList.add('hidden');
+                }
+
+                rawFactData = Object.values(pivotMap);
+                
+                if (rawFactData.length === 0) {
+                    showToast('ไม่มีข้อมูลของ TKP เพื่อนำมาสร้างหน้าหลัก', 'warning');
+                } else {
+                    finalizeFactDataLoad('โหลดข้อมูล 6 โรงงาน สำเร็จ!');
+                }
+            } catch (e) {
+                console.error(e); showToast('เกิดข้อผิดพลาดในการประมวลผลไฟล์ 1', 'error');
+            }
+        }
+
+        function finalizeFactDataLoad(msg) {
+            availableYears = [...new Set(rawFactData.map(row => row["Corp Year"]))].sort();
+            const prevSelected = [...selectedYears];
+            selectedYears = availableYears.filter(y => prevSelected.includes(y));
+            if (selectedYears.length === 0) {
+                selectedYears = availableYears.length > 0 ? [availableYears[availableYears.length - 1]] : []; 
+                if(availableYears.length > 1) selectedYears = availableYears.slice(-2);
+            }
+            
+            document.getElementById('main-empty-state').classList.add('force-hidden');
+            document.getElementById('dashboard-content-wrapper').classList.remove('force-hidden');
+
+            populateCompareSelect();
+            renderYearSelector();
+            updateDashboard();
+            showToast(msg, 'success');
+        }
+
+        function processDimData(parsedData) {
+            try {
+                const data = normalizeCSV(parsedData);
+                if(data.length === 0) return;
+                
+                const keys = Object.keys(data[0]);
+                const keysClean = keys.map(cleanStr);
+                if (!keysClean.some(k => k.includes('category') || k.includes('metric'))) {
+                    showToast('รูปแบบไฟล์ 2 ผิดพลาด (ต้องมี Category/Metric)', 'error');
+                    return;
+                }
+
+                const catCol = keys.find(k => cleanStr(k).includes('category')) || keys[0];
+                const metricCol = keys.find(k => cleanStr(k).includes('metric')) || keys[1];
+                
+                const targetCol = keys.find(k => cleanStr(k) === 'target' || cleanStr(k).includes('targetvalue'));
+                const condCol = keys.find(k => cleanStr(k) === 'condition' || cleanStr(k).includes('targetcondition'));
+
+                dimMappingData = data.filter(row => row[catCol] && row[metricCol]).map(row => ({
+                    Category: String(row[catCol]).trim(),
+                    Metric_Name: String(row[metricCol]).trim(),
+                    Target: targetCol && row[targetCol] ? row[targetCol] : null,
+                    Condition: condCol && row[condCol] ? row[condCol] : null
+                }));
+                populateCompareSelect();
+                updateDashboard(); // Refresh UI in case targets changed
+                showToast('โหลดข้อมูลหมวดหมู่และเป้าหมาย (Dim) สำเร็จ', 'success');
+            } catch (e) { console.error(e); showToast('เกิดข้อผิดพลาดในไฟล์ 2', 'error'); }
+        }
+
+        // --- 5. UI Updating & Rendering ---
+        function populateCompareSelect() {
+            const select1 = document.getElementById('customCompareSelect');
+            const select2 = document.getElementById('customCompareSelect2');
+            const select3 = document.getElementById('customCompareSelect3'); 
+            
+            const currentVal1 = select1.value;
+            const currentVal2 = select2.value;
+            const currentVal3 = select3.value; 
+            
+            select1.innerHTML = '';
+            select2.innerHTML = '<option value="">-- ไม่เลือก (None) --</option>';
+            select3.innerHTML = '<option value="">-- ไม่เลือก (None) --</option>'; 
+            
+            let optionsHtml = '';
+
+            if (dimMappingData.length > 0 && rawFactData.length > 0) {
+                const groups = {};
+                dimMappingData.forEach(row => {
+                    let actualCol = findCol(row.Metric_Name);
+                    let finalName = actualCol ? actualCol : row.Metric_Name;
+                    if (!groups[row.Category]) groups[row.Category] = [];
+                    if (!groups[row.Category].includes(finalName)) {
+                        groups[row.Category].push(finalName);
+                    }
+                });
+                Object.keys(groups).forEach(cat => {
+                    optionsHtml += `<optgroup label="${cat}">`;
+                    groups[cat].forEach(metric => {
+                        optionsHtml += `<option value="${metric}">${metric}</option>`;
+                    });
+                    optionsHtml += `</optgroup>`;
+                });
+            } else if (rawFactData.length > 0) {
+                const keys = Object.keys(rawFactData[0]).filter(k => !cleanStr(k).includes('year') && !cleanStr(k).includes('เปิด') && !cleanStr(k).includes('ปิด') && !cleanStr(k).includes('จำนวน'));
+                keys.forEach(k => {
+                    optionsHtml += `<option value="${k}">${k}</option>`;
+                });
+            }
+            
+            select1.innerHTML += optionsHtml;
+            select2.innerHTML += optionsHtml;
+            select3.innerHTML += optionsHtml; 
+            
+            let isSet1 = false;
+            if (currentVal1) {
+                for(let i=0; i<select1.options.length; i++) {
+                    if (select1.options[i].value === currentVal1) { select1.selectedIndex = i; isSet1 = true; break; }
+                }
+            }
+            if (!isSet1) {
+                for(let i=0; i<select1.options.length; i++) {
+                    if(cleanStr(select1.options[i].value).includes("yieldccs")) { select1.selectedIndex = i; break; }
+                }
+            }
+
+            let isSet2 = false;
+            if (currentVal2) {
+                for(let i=0; i<select2.options.length; i++) {
+                    if (select2.options[i].value === currentVal2) { select2.selectedIndex = i; isSet2 = true; break; }
+                }
+            }
+            if (!isSet2) {
+                select2.value = ""; 
+            }
+            
+            let isSet3 = false;
+            if (currentVal3) {
+                for(let i=0; i<select3.options.length; i++) {
+                    if (select3.options[i].value === currentVal3) { select3.selectedIndex = i; isSet3 = true; break; }
+                }
+            }
+            if (!isSet3) {
+                select3.value = ""; 
+            }
+        }
+
+        function renderYearSelector() {
+            const container = document.getElementById('yearCheckboxContainer');
+            container.innerHTML = '';
+            if(availableYears.length === 0) {
+                 container.innerHTML = '<span class="text-[10px] text-slate-400 italic mt-1">รอการอัปโหลดไฟล์ 1. ข้อมูลผลิต</span>'; return;
+            }
+            availableYears.forEach(year => {
+                const isChecked = selectedYears.includes(year);
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1 text-[11px] font-bold rounded-full border transition-all duration-200 ${
+                    isChecked ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30' : 'bg-slate-700/80 text-slate-300 border-slate-600 hover:bg-slate-600 hover:text-white'
+                }`;
+                btn.innerText = year;
+                btn.onclick = () => {
+                    if (selectedYears.includes(year)) {
+                        if(selectedYears.length > 1) { selectedYears = selectedYears.filter(y => y !== year); } 
+                        else { showToast("ต้องเลือกอย่างน้อย 1 ปีการผลิต", "warning"); return; }
+                    } else {
+                        selectedYears.push(year); selectedYears.sort();
+                    }
+                    renderYearSelector(); updateDashboard();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function updateDashboard() {
+            if (selectedYears.length === 0 || rawFactData.length === 0) return;
+            const filteredData = rawFactData.filter(row => selectedYears.includes(row["Corp Year"]));
+
+            try { renderExecutiveKPIs(filteredData); } catch(e) { console.error("Error KPI:", e); }
+            try { renderGaugeCharts(filteredData); } catch(e) { console.error("Error Gauge:", e); }
+            try { renderMillingHouseDeepDive(filteredData); } catch(e) { console.error("Error Milling Deep Dive:", e); } 
+            try { renderLossDoughnutChart(filteredData); } catch(e) { console.error("Error Doughnut:", e); } 
+            try { renderLineChart(filteredData); } catch(e) { console.error("Error Line:", e); }
+            try { renderBoilingHouse(filteredData); } catch(e) { console.error("Error Boiling House:", e); } 
+            try { renderDataTable(filteredData); } catch(e) { console.error("Error Table:", e); }
+            try { renderCustomCompareChart(filteredData); } catch(e) { console.error("Error Custom Chart:", e); }
+            
+            if(isBenchmarkLoaded) { 
+                try { 
+                    updateBenchmarkDropdown(); 
+                    updateBenchmarkSection(); 
+                } catch(e) { console.error("Error Benchmark:", e); } 
+            }
+        }
+
+        // --- Benchmark logic ---
+        function updateBenchmarkDropdown() {
+            const select = document.getElementById('benchmarkMetricSelect');
+            const currentVal = select.value;
+
+            let metricsWithCompare = [];
+            let metricsTkpOnly = [];
+
+            benchmarkMetricsList.forEach(m => {
+                let hasTkp = false;
+                let hasOther = false;
+                benchmarkFactories.forEach(f => {
+                    let hasDataForFactory = false;
+                    selectedYears.forEach(y => {
+                        if (benchmarkData[f] && benchmarkData[f][y] && benchmarkData[f][y][m] !== null && benchmarkData[f][y][m] !== undefined) {
+                            hasDataForFactory = true;
+                        }
+                    });
+                    if (hasDataForFactory) {
+                        let fClean = cleanStr(f);
+                        if (fClean.includes('tkp') || fClean.includes('ทิพย์กำแพงเพชร')) {
+                            hasTkp = true;
+                        } else {
+                            hasOther = true;
+                        }
+                    }
+                });
+                
+                if (hasTkp || hasOther) {
+                    if (hasOther) {
+                        metricsWithCompare.push(m);
+                    } else {
+                        metricsTkpOnly.push(m);
+                    }
+                }
+            });
+
+            metricsWithCompare.sort();
+            metricsTkpOnly.sort();
+
+            const newValidMetrics = [...metricsWithCompare, ...metricsTkpOnly];
+            // Ensure options list matches exactly to avoid redundant rebuilds
+            const currentOptions = Array.from(select.options).filter(o => o.value !== "").map(o => o.value);
+            if (newValidMetrics.join(',') === currentOptions.join(',')) return;
+
+            select.innerHTML = '';
+            if (newValidMetrics.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = ""; opt.text = "-- ไม่มีข้อมูลที่นำมาเปรียบเทียบได้ --";
+                select.appendChild(opt); return;
+            }
+
+            if (metricsWithCompare.length > 0) {
+                const group1 = document.createElement('optgroup');
+                group1.label = "📊 สามารถเปรียบเทียบได้ (มีข้อมูล รง. อื่น)";
+                metricsWithCompare.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; 
+                    opt.text = `📊 ${m}`; 
+                    group1.appendChild(opt);
+                });
+                select.appendChild(group1);
+            }
+
+            if (metricsTkpOnly.length > 0) {
+                const group2 = document.createElement('optgroup');
+                group2.label = "🏢 มีข้อมูลเฉพาะโรงงาน TKP";
+                metricsTkpOnly.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; 
+                    opt.text = `🏢 ${m}`; 
+                    group2.appendChild(opt);
+                });
+                select.appendChild(group2);
+            }
+
+            if (newValidMetrics.includes(currentVal)) { 
+                select.value = currentVal; 
+            } else {
+                // Default to first compare metric, or first overall
+                const defaultMetric = metricsWithCompare.find(m => cleanStr(m).includes('tonscanecrushedactual')) || 
+                                      metricsTkpOnly.find(m => cleanStr(m).includes('tonscanecrushedactual'));
+                select.value = defaultMetric ? defaultMetric : newValidMetrics[0];
+            }
+        }
+
+        function updateBenchmarkSection() {
+            if(!isBenchmarkLoaded || selectedYears.length === 0) return;
+            const select = document.getElementById('benchmarkMetricSelect');
+            const metric = select.value;
+            const diffCard = document.getElementById('diffTkpCard');
+            const latestYear = selectedYears[selectedYears.length - 1];
+            
+            if(!metric) {
+                if (charts['benchmark']) charts['benchmark'].destroy();
+                if (charts['benchmarkLossBreakdown']) charts['benchmarkLossBreakdown'].destroy();
+                if (charts['benchmarkLoss100']) charts['benchmarkLoss100'].destroy();
+                if (charts['benchmarkWaterfall']) charts['benchmarkWaterfall'].destroy();
+                document.getElementById('benchmarkTableBody').innerHTML = '';
+                document.getElementById('topPerformerName').innerText = "ไม่มีข้อมูลเปรียบเทียบ";
+                document.getElementById('topPerformerValue').innerText = "-";
+                document.getElementById('benchmarkChartTitle').innerText = "กราเปรียบเทียบ";
+                document.getElementById('benchmarkLegend').innerHTML = '';
+                if(diffCard) { diffCard.classList.add('hidden'); diffCard.classList.remove('flex'); }
+                return;
+            }
+
+            const isLossMetric = cleanStr(metric).includes('loss') || cleanStr(metric).includes('stoppage') || cleanStr(metric).includes('trash');
+            
+            document.getElementById('benchmarkChartTitle').innerText = `แนวโน้ม: ${metric} (ปีล่าสุด -> ปีเก่าสุด)`;
+            document.getElementById('topPerformerYear').innerText = latestYear;
+
+            let scores = [];
+            benchmarkFactories.forEach(f => {
+                let val = benchmarkData[f] && benchmarkData[f][latestYear] && benchmarkData[f][latestYear][metric] !== null && benchmarkData[f][latestYear][metric] !== undefined ? benchmarkData[f][latestYear][metric] : null;
+                if(val !== null) scores.push({ factory: f, value: val });
+            });
+
+            if (scores.length > 0) {
+                scores.sort((a, b) => isLossMetric ? a.value - b.value : b.value - a.value);
+                const top = scores[0];
+                document.getElementById('topPerformerName').innerText = top.factory;
+                document.getElementById('topPerformerValue').innerText = formatNum(top.value) + (metric.includes('%') ? '%' : '');
+
+                // Calculate Diff with TKP
+                let tkpFactory = benchmarkFactories.find(f => cleanStr(f).includes('tkp') || cleanStr(f).includes('ทิพย์กำแพงเพชร'));
+                let tkpValue = (tkpFactory && benchmarkData[tkpFactory] && benchmarkData[tkpFactory][latestYear] !== undefined && benchmarkData[tkpFactory][latestYear][metric] !== null) ? benchmarkData[tkpFactory][latestYear][metric] : null;
+
+                if (tkpValue !== null && top.factory !== tkpFactory) {
+                    let diff = Math.abs(top.value - tkpValue);
+                    let isTopBetter = isLossMetric ? (top.value < tkpValue) : (top.value > tkpValue);
+                    
+                    if (isTopBetter) {
+                        document.getElementById('diffTkpName').innerText = `TKP: ${formatNum(tkpValue)}`;
+                        let sign = top.value > tkpValue ? '+' : '-';
+                        document.getElementById('diffTkpValue').innerText = `${sign}${formatNum(diff)}${metric.includes('%') ? '%' : ''}`;
+                        diffCard.classList.remove('hidden');
+                        diffCard.classList.add('flex');
+                    } else {
+                        diffCard.classList.add('hidden');
+                        diffCard.classList.remove('flex');
+                    }
+                } else {
+                    diffCard.classList.add('hidden');
+                    diffCard.classList.remove('flex');
+                }
+            } else {
+                document.getElementById('topPerformerName').innerText = "ไม่มีข้อมูลในปีล่าสุด";
+                document.getElementById('topPerformerValue').innerText = "-";
+                diffCard.classList.add('hidden');
+                diffCard.classList.remove('flex');
+            }
+
+            // Reverse Years array for Newest to Oldest display in Benchmark Chart & Table
+            const reversedYears = [...selectedYears].reverse();
+
+            const ctx = document.getElementById('benchmarkBarChart').getContext('2d');
+            if (charts['benchmark']) charts['benchmark'].destroy();
+
+            // Set fixed colors for each factory so they stay consistent even when sorted
+            const factoryPalette = ['#3b82f6', '#8b5cf6', '#f59e0b', '#f43f5e', '#06b6d4', '#14b8a6', '#84cc16'];
+            let colorIdx = 0;
+            let fColors = {};
+            benchmarkFactories.forEach(f => {
+                if (cleanStr(f).includes('tkp') || cleanStr(f).includes('ทิพย์กำแพงเพชร')) {
+                    fColors[f] = '#10b981'; // TKP always Emerald
+                } else {
+                    fColors[f] = factoryPalette[colorIdx % factoryPalette.length];
+                    colorIdx++;
+                }
+            });
+
+            // Sort data Per Year for dynamic clustered bar chart (มากไปน้อย)
+            const sortedDataPerYear = reversedYears.map(y => {
+                let list = benchmarkFactories.map(f => {
+                    let val = benchmarkData[f] && benchmarkData[f][y] && benchmarkData[f][y][metric] !== undefined ? benchmarkData[f][y][metric] : null;
+                    return { factory: f, value: val };
+                });
+                list.sort((a, b) => {
+                    if (a.value === null && b.value === null) return 0;
+                    if (a.value === null) return 1;
+                    if (b.value === null) return -1;
+                    return b.value - a.value; // Sort Descending (มากไปน้อย)
+                });
+                return list;
+            });
+
+            // Map sorted data to datasets (Rank 1 to Rank N)
+            const datasets = [];
+            const maxFactories = benchmarkFactories.length;
+            
+            for (let rank = 0; rank < maxFactories; rank++) {
+                const data = [];
+                const bgColors = [];
+                const labels = [];
+                
+                reversedYears.forEach((y, yIdx) => {
+                    const item = sortedDataPerYear[yIdx][rank];
+                    if (item && item.value !== null) {
+                        data.push(item.value);
+                        bgColors.push(fColors[item.factory]);
+                        labels.push(item.factory);
+                    } else {
+                        data.push(null);
+                        bgColors.push('#cbd5e1');
+                        labels.push('');
+                    }
+                });
+
+                datasets.push({
+                    label: `Rank ${rank+1}`,
+                    data: data,
+                    backgroundColor: bgColors,
+                    borderRadius: 4,
+                    customFactoryLabels: labels // Inject for tooltip use
+                });
+            }
+
+            charts['benchmark'] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: reversedYears, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }, // Hide default legend due to dynamic sorting
+                        datalabels: { color: '#fff', font: { size: 9, weight: 'bold' }, formatter: (val) => val !== null ? formatNum(val) : '', rotation: -90, align: 'center', anchor: 'center' },
+                        tooltip: { 
+                            callbacks: { 
+                                label: (ctx) => {
+                                    const factory = ctx.dataset.customFactoryLabels[ctx.dataIndex];
+                                    return factory ? `${factory}: ${formatNum(ctx.raw)}` : '';
+                                } 
+                            } 
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { title: { display: true, text: metric, font: { weight: 'bold' } }, grid: { borderDash: [4, 4], color: '#e2e8f0' } }
+                    }
+                }
+            });
+
+            // Render Custom HTML Legend
+            const legendDiv = document.getElementById('benchmarkLegend');
+            if (legendDiv) {
+                legendDiv.innerHTML = '';
+                benchmarkFactories.forEach(f => {
+                    legendDiv.innerHTML += `
+                        <div class="flex items-center text-[11px] text-slate-600 font-bold uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                            <span class="w-3 h-3 rounded-full mr-2 shadow-sm" style="background-color: ${fColors[f]}"></span>
+                            ${f}
+                        </div>
+                    `;
+                });
+            }
+
+            // === NEW: Stacked Bar Chart for Total Loss Breakdown (Multi-Year Grouped Stacked) ===
+            const lossBreakdownCtx = document.getElementById('benchmarkLossBreakdownChart').getContext('2d');
+            if (charts['benchmarkLossBreakdown']) charts['benchmarkLossBreakdown'].destroy();
+
+            // Find columns for the 4 losses + total loss
+            const colBagasse = findCol('lossinbagasse');
+            const colFilter = findCol('lossinfiltercake');
+            const colMolasses = findCol('lossinfinalmolasses');
+            const colUndet = findCol('lossinundetermined');
+            const colTotalLoss = findCol('totalloss');
+
+            document.getElementById('lossBreakdownYear').innerText = `เปรียบเทียบ ${selectedYears.length} ปี`;
+
+            // 1. Calculate Total Loss per factory for the LATEST year to determine Sorting Order
+            let factorySortScores = benchmarkFactories.map(f => {
+                let tLoss = benchmarkData[f] && benchmarkData[f][latestYear] && benchmarkData[f][latestYear][colTotalLoss] !== undefined ? benchmarkData[f][latestYear][colTotalLoss] : 999;
+                if(tLoss === null) tLoss = 999;
+                if (tLoss === 999) { // fallback calculate
+                     let b = benchmarkData[f]?.[latestYear]?.[colBagasse] || 0;
+                     let c = benchmarkData[f]?.[latestYear]?.[colFilter] || 0;
+                     let m = benchmarkData[f]?.[latestYear]?.[colMolasses] || 0;
+                     let u = benchmarkData[f]?.[latestYear]?.[colUndet] || 0;
+                     let sum = b+c+m+u;
+                     tLoss = sum > 0 ? sum : 999;
+                }
+                return { factory: f, score: tLoss };
+            });
+            // Sort Ascending (Best to Worst based on latest year)
+            factorySortScores.sort((a, b) => a.score - b.score); 
+            const sortedFactories = factorySortScores.map(s => s.factory);
+
+            // 2. Prepare flat data arrays for grouped stacked bars
+            const labelsBD = [];
+            const dataBagasse = [];
+            const dataFilter = [];
+            const dataMolasses = [];
+            const dataUndet = [];
+            const dataTotalLine = [];
+
+            // Sort years chronologically (Oldest -> Newest) for side-by-side display
+            const chronoYears = [...selectedYears].sort((a, b) => a.localeCompare(b));
+            const datasetsBD = [];
+
+            // UPDATED REORDER: Filter Cake -> Bagasse -> Final Molasses -> Undetermined
+            const lossConfigs = [
+                { col: colFilter, label: 'Filter Cake', color: 'rgba(139, 92, 246, OPACITY)' }, // Violet
+                { col: colBagasse, label: 'Bagasse', color: 'rgba(245, 158, 11, OPACITY)' }, // Amber
+                { col: colMolasses, label: 'Final Molasses', color: 'rgba(59, 130, 246, OPACITY)' }, // Blue
+                { col: colUndet, label: 'Undetermined', color: 'rgba(244, 63, 94, OPACITY)' } // Rose
+            ];
+
+            chronoYears.forEach((y, yIdx) => {
+                let opacity = 1.0;
+                if (chronoYears.length > 1) {
+                    opacity = 0.3 + (0.7 * (yIdx / (chronoYears.length - 1))); // Older years are more transparent
+                }
+
+                // Pre-calculate line data for trend
+                let totalLineForYear = sortedFactories.map(f => {
+                     let b = benchmarkData[f]?.[y]?.[colBagasse] || 0;
+                     let c = benchmarkData[f]?.[y]?.[colFilter] || 0;
+                     let m = benchmarkData[f]?.[y]?.[colMolasses] || 0;
+                     let u = benchmarkData[f]?.[y]?.[colUndet] || 0;
+                     
+                     // แก้ไขบั๊ก Total Loss ใน Benchmark: ใช้ค่าจากคอลัมน์ตรงๆ ถ้ามี ถ้าไม่มีค่อยบวก
+                     let t = benchmarkData[f]?.[y]?.[colTotalLoss] !== undefined && benchmarkData[f]?.[y]?.[colTotalLoss] !== null 
+                             ? benchmarkData[f]?.[y]?.[colTotalLoss] 
+                             : (b + c + m + u);
+                     return t;
+                });
+
+                if(yIdx === chronoYears.length - 1) {
+                     datasetsBD.push({
+                        type: 'line',
+                        label: `Total Loss Trend (${y})`,
+                        data: totalLineForYear,
+                        borderColor: '#334155',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#334155',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: false,
+                        stack: 'trend',
+                        datalabels: { display: false }
+                    });
+                }
+
+                lossConfigs.forEach((cfg) => {
+                    let data = sortedFactories.map(f => {
+                        let val = benchmarkData[f]?.[y]?.[cfg.col];
+                        return val !== undefined && val !== null ? val : 0;
+                    });
+
+                    datasetsBD.push({
+                        label: `${cfg.label} (${y})`,
+                        data: data,
+                        backgroundColor: cfg.color.replace('OPACITY', opacity),
+                        borderColor: '#ffffff',
+                        borderWidth: 0.5,
+                        stack: y, // Grouping property
+                        
+                        // Custom props for tooltip
+                        isLossType: cfg.label,
+                        yearLabel: y,
+
+                        datalabels: {
+                            color: '#fff',
+                            font: { size: 9, weight: 'bold' },
+                            formatter: (val) => val > 0.5 ? formatNum(val) : '',
+                            display: yIdx === chronoYears.length - 1 // Only display labels on the latest year's bar
+                        }
+                    });
+                });
+            });
+
+            charts['benchmarkLossBreakdown'] = new Chart(lossBreakdownCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedFactories,
+                    datasets: datasetsBD
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            stacked: true, // Required for grouped stacking
+                            grid: { display: false },
+                            ticks: { font: { family: 'Sarabun', size: 11, weight: 'bold' }, color: '#64748b' }
+                        },
+                        y: { 
+                            stacked: true, // Required for grouped stacking
+                            title: { display: true, text: '% Loss', font: { weight: 'bold' } }, 
+                            grid: { borderDash: [4, 4], color: '#e2e8f0' } 
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }, // Using custom legend
+                        tooltip: {
+                            callbacks: {
+                                title: (tooltipItems) => {
+                                    let factory = tooltipItems[0].label;
+                                    let year = tooltipItems[0].dataset.yearLabel || latestYear;
+                                    return `${factory} (ปี ${year})`;
+                                },
+                                label: (context) => {
+                                    if(context.dataset.type === 'line') return `Total Loss: ${formatNum(context.raw)}%`;
+                                    return `${context.dataset.isLossType}: ${formatNum(context.raw)}%`;
+                                },
+                                footer: (tooltipItems) => {
+                                    if(tooltipItems[0].dataset.type === 'line') return null;
+                                    let sum = 0;
+                                    let year = tooltipItems[0].dataset.yearLabel;
+                                    tooltipItems[0].chart.data.datasets.forEach(ds => {
+                                        if (ds.yearLabel === year && ds.type !== 'line') {
+                                            sum += ds.data[tooltipItems[0].dataIndex];
+                                        }
+                                    });
+                                    // แก้ไขให้ตรงกับที่ดึงมาแสดงผลในกราฟเส้น
+                                    let f = tooltipItems[0].label;
+                                    let tLossCol = benchmarkData[f]?.[year]?.[colTotalLoss];
+                                    let finalTotal = tLossCol !== undefined && tLossCol !== null ? tLossCol : sum;
+                                    return 'Total Loss: ' + formatNum(finalTotal) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Build Custom Legend
+            const legendDivBD = document.getElementById('lossBreakdownLegend');
+            if(legendDivBD) {
+                legendDivBD.innerHTML = '';
+                lossConfigs.forEach(cfg => {
+                    legendDivBD.innerHTML += `
+                        <div class="flex items-center text-[11px] text-slate-600 font-bold uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                            <span class="w-3 h-3 rounded-full mr-2 shadow-sm" style="background-color: ${cfg.color.replace('OPACITY', '1')}"></span>
+                            Loss in ${cfg.label}
+                        </div>
+                    `;
+                });
+            }
+
+            // === NEW 1: 100% Stacked Bar Chart ===
+            const loss100Ctx = document.getElementById('benchmarkLoss100Chart').getContext('2d');
+            if (charts['benchmarkLoss100']) charts['benchmarkLoss100'].destroy();
+            
+            document.getElementById('loss100Year').innerText = `เปรียบเทียบ ${selectedYears.length} ปี`;
+
+            const datasets100 = [];
+            chronoYears.forEach((y, yIdx) => {
+                let opacity = 1.0;
+                if (chronoYears.length > 1) {
+                    opacity = 0.3 + (0.7 * (yIdx / (chronoYears.length - 1))); 
+                }
+
+                lossConfigs.forEach((cfg) => {
+                    let data100 = sortedFactories.map(f => {
+                        let b = benchmarkData[f]?.[y]?.[colBagasse] || 0;
+                        let c = benchmarkData[f]?.[y]?.[colFilter] || 0;
+                        let m = benchmarkData[f]?.[y]?.[colMolasses] || 0;
+                        let u = benchmarkData[f]?.[y]?.[colUndet] || 0;
+                        let t = b + c + m + u;
+                        
+                        let val = benchmarkData[f]?.[y]?.[cfg.col] || 0;
+                        return t > 0 ? (val / t) * 100 : 0;
+                    });
+
+                    datasets100.push({
+                        label: `${cfg.label} (${y})`,
+                        data: data100,
+                        backgroundColor: cfg.color.replace('OPACITY', opacity),
+                        borderColor: '#ffffff',
+                        borderWidth: 0.5,
+                        stack: y,
+                        isLossType: cfg.label,
+                        yearLabel: y,
+                        datalabels: {
+                            color: '#fff',
+                            font: { size: 9, weight: 'bold' },
+                            formatter: (val) => val > 5 ? formatNum(val, 1) + '%' : '', // hide if < 5%
+                            display: yIdx === chronoYears.length - 1 
+                        }
+                    });
+                });
+            });
+
+            charts['benchmarkLoss100'] = new Chart(loss100Ctx, {
+                type: 'bar',
+                data: { labels: sortedFactories, datasets: datasets100 },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 11, weight: 'bold' }, color: '#64748b' } },
+                        y: { stacked: true, max: 100, title: { display: true, text: '% Proportion', font: { weight: 'bold' } }, grid: { borderDash: [4, 4], color: '#e2e8f0' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (tooltipItems) => {
+                                    let factory = tooltipItems[0].label;
+                                    let year = tooltipItems[0].dataset.yearLabel;
+                                    return `${factory} (ปี ${year})`;
+                                },
+                                label: (context) => {
+                                    let f = context.chart.data.labels[context.dataIndex];
+                                    let y = context.dataset.yearLabel;
+                                    let rawVal = benchmarkData[f]?.[y]?.[lossConfigs.find(c => c.label === context.dataset.isLossType).col] || 0;
+                                    return `${context.dataset.isLossType}: ${formatNum(context.raw, 1)}% (สูญเสียจริง: ${formatNum(rawVal, 2)}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // === NEW 2: Waterfall Chart (Latest Year) ===
+            const waterfallCtx = document.getElementById('benchmarkWaterfallChart').getContext('2d');
+            if (charts['benchmarkWaterfall']) charts['benchmarkWaterfall'].destroy();
+            
+            document.getElementById('waterfallYear').innerText = `ปี ${latestYear}`;
+
+            // UPDATED REORDER FOR WATERFALL LABELS
+            const waterfallLabels = ['Filter Cake', 'Bagasse', 'Final Molasses', 'Undetermined', 'TOTAL LOSS'];
+            const waterfallDatasets = [];
+
+            sortedFactories.forEach((f, idx) => {
+                let c = benchmarkData[f]?.[latestYear]?.[colFilter] || 0;
+                let b = benchmarkData[f]?.[latestYear]?.[colBagasse] || 0;
+                let m = benchmarkData[f]?.[latestYear]?.[colMolasses] || 0;
+                let u = benchmarkData[f]?.[latestYear]?.[colUndet] || 0;
+                
+                // แก้ไขบั๊ก Total Loss Waterfall: ดึงจาก Column ถาวร ถ้าไม่มีค่อยบวก
+                let tLossCol = benchmarkData[f]?.[latestYear]?.[colTotalLoss];
+                let total = tLossCol !== undefined && tLossCol !== null ? tLossCol : (c + b + m + u);
+
+                waterfallDatasets.push({
+                    label: f,
+                    data: [
+                        [0, c],           // Filter Cake
+                        [c, c+b],         // + Bagasse
+                        [c+b, c+b+m],     // + Molasses
+                        [c+b+m, (c+b+m+u)],   // + Undet
+                        [0, total]        // Full bar for Total Loss
+                    ],
+                    backgroundColor: fColors[f],
+                    borderColor: '#ffffff',
+                    borderWidth: 1.5,
+                    borderRadius: 2,
+                    datalabels: {
+                        color: '#fff', 
+                        font: { size: 9, weight: 'bold' },
+                        formatter: (val, ctx) => {
+                            let diff = val[1] - val[0];
+                            return diff > 0 ? formatNum(diff) : '';
+                        },
+                        anchor: 'center',
+                        align: 'center'
+                    }
+                });
+            });
+
+            charts['benchmarkWaterfall'] = new Chart(waterfallCtx, {
+                type: 'bar',
+                data: { labels: waterfallLabels, datasets: waterfallDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { family: 'Sarabun', size: 11, weight: 'bold' } } },
+                        y: { title: { display: true, text: '% Cumulative Loss', font: { weight: 'bold' } }, grid: { borderDash: [4, 4], color: '#e2e8f0' } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, font: { family: 'Sarabun', size: 11, weight: 'bold' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    let diff = ctx.raw[1] - ctx.raw[0];
+                                    return `${ctx.dataset.label}: +${formatNum(diff)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            // ========================================================
+
+            const thead = document.getElementById('benchmarkTableHeader');
+            thead.innerHTML = '<th scope="col" class="px-6 py-3 font-bold tracking-wider min-w-[200px]">Factory</th>';
+            reversedYears.forEach(y => { thead.innerHTML += `<th scope="col" class="px-6 py-3 font-bold tracking-wider text-right min-w-[100px]">${y}</th>`; });
+
+            // Sort factories for the Table (by latest year descending)
+            const tableFactories = [...benchmarkFactories];
+            tableFactories.sort((a, b) => {
+                let valA = benchmarkData[a] && benchmarkData[a][latestYear] && benchmarkData[a][latestYear][metric] !== undefined ? benchmarkData[a][latestYear][metric] : null;
+                let valB = benchmarkData[b] && benchmarkData[b][latestYear] && benchmarkData[b][latestYear][metric] !== undefined ? benchmarkData[b][latestYear][metric] : null;
+                if (valA === null && valB === null) return 0;
+                if (valA === null) return 1;
+                if (valB === null) return -1;
+                return valB - valA;
+            });
+
+            const tbody = document.getElementById('benchmarkTableBody');
+            tbody.innerHTML = '';
+            tableFactories.forEach(factory => {
+                let rowHtml = `<td class="px-6 py-3 font-bold text-slate-700 flex items-center"><span class="w-2.5 h-2.5 rounded-full mr-3 shadow-sm" style="background-color: ${fColors[factory]}"></span>${factory}</td>`;
+                reversedYears.forEach(y => {
+                    let val = benchmarkData[factory] && benchmarkData[factory][y] && benchmarkData[factory][y][metric] !== undefined ? benchmarkData[factory][y][metric] : null;
+                    rowHtml += `<td class="px-6 py-3 text-right text-slate-600">${val !== null ? formatNum(val) + (metric.includes('%') ? '%' : '') : '-'}</td>`;
+                });
+                const tr = document.createElement('tr'); tr.className = "hover:bg-slate-50 transition-colors"; tr.innerHTML = rowHtml; tbody.appendChild(tr);
+            });
+        }
+
+        // --- Render Sub-Components ---
+        function extractMetric(data, targetCol) {
+            let colName = findCol(targetCol);
+            let sum = 0, count = 0; let years = {}; let isPercent = false;
+            
+            // แก้ไขให้เช็คชื่อคอลัมน์ด้วยว่ามี % หรือไม่
+            if (cleanStr(targetCol).includes('yieldccs') || (colName && colName.includes('%'))) isPercent = true;
+
+            if (colName) {
+                data.forEach(row => {
+                    let rawVal = row[colName];
+                    let val = cleanNumber(rawVal);
+                    if(typeof rawVal === 'string' && rawVal.includes('%')) isPercent = true;
+                    // แก้ไขบั๊ก Falsy อนุญาตให้เลข 0 ทำงานได้
+                    if (val !== null && val !== undefined) { years[row["Corp Year"]] = val; sum += val; count++; }
+                });
+            }
+            return { name: colName || targetCol, avg: count > 0 ? sum / count : 0, years: years, isPercent: isPercent };
+        }
+
+        // NEW Advanced Card Renderer
+        function createMiniKPICard(title, metricData, unit = '', colorLineClass = 'bg-emerald-500', opts = {}) {
+            const latestYear = selectedYears[selectedYears.length - 1];
+            const prevYear = selectedYears.length > 1 ? selectedYears[selectedYears.length - 2] : null;
+
+            // Determine decimal places. Kp and Kb get 4 decimal places, others default to 2.
+            const isKpKb = (title === 'Kp' || title === 'Kb');
+            const decimals = isKpKb ? 4 : 2;
+
+            // แก้ไขบั๊ก Falsy
+            let latestVal = metricData.years[latestYear] !== undefined ? metricData.years[latestYear] : null;
+            let prevVal = prevYear && metricData.years[prevYear] !== undefined ? metricData.years[prevYear] : null;
+            let displayMainVal = latestVal !== null ? formatNum(latestVal, decimals) : '-';
+
+            let yearsHtml = '';
+            selectedYears.forEach(y => {
+                let val = metricData.years[y] !== undefined ? formatNum(metricData.years[y], decimals) : '-';
+                let isLatest = (y === latestYear);
+                yearsHtml += `<div class="flex justify-between items-center text-[10px] py-1.5 border-b border-slate-100 last:border-0 ${isLatest ? 'bg-slate-100/80' : 'hover:bg-slate-50'} transition-colors px-2 rounded-sm">
+                    <span class="${isLatest ? 'text-slate-700 font-bold' : 'text-slate-500 font-medium'}">${y}</span>
+                    <span class="font-bold ${isLatest ? 'text-slate-800' : 'text-slate-700'}">${val} <span class="text-[9px] text-slate-400 font-normal">${unit}</span></span>
+                </div>`;
+            });
+
+            // Diff vs Previous Year Logic
+            let diffPrevHtml = '';
+            if (opts.showDiffPrev && latestVal !== null && prevVal !== null) {
+                let diff = latestVal - prevVal;
+                
+                // NEW: Logic for explicit lessIsBetter lock (e.g. Fiber % Cane)
+                let isLessBetter = false;
+                if (opts.isLessBetter === true) {
+                    isLessBetter = true;
+                } else if (opts.targetObj && (opts.targetObj.condition.includes('<') || opts.targetObj.condition.includes('≤'))) {
+                    isLessBetter = true;
+                }
+                
+                let colorClass = diff > 0 ? (isLessBetter ? 'text-rose-500' : 'text-emerald-500') : 
+                                 diff < 0 ? (isLessBetter ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-400';
+                let icon = diff > 0 ? 'fa-caret-up' : (diff < 0 ? 'fa-caret-down' : 'fa-minus');
+                let sign = diff > 0 ? '+' : '';
+                let bgClass = colorClass !== 'text-slate-400' ? `bg-${colorClass.split('-')[1]}-50` : 'bg-slate-50';
+                
+                diffPrevHtml = `<div class="mt-1 text-[11px] font-bold ${colorClass} ${bgClass} px-2 py-1 rounded inline-flex items-center shadow-sm" title="เทียบกับปี ${prevYear}">
+                    <span class="text-[9px] uppercase tracking-widest opacity-80 border-r border-current pr-1.5 mr-1.5 leading-none">YoY</span>
+                    <span class="flex items-center gap-1"><i class="fas ${icon} text-[10px]"></i> ${sign}${formatNum(diff, decimals)}</span>
+                </div>`;
+            }
+
+            // Target and Gap Logic
+            let targetInfoHtml = '';
+            if (opts.targetObj && opts.targetObj.value !== null && opts.showTarget) {
+                targetInfoHtml += `<div class="flex justify-between items-center text-[10px] mt-1.5 pt-1.5 border-t border-slate-100">
+                    <span class="text-slate-400 font-medium">Target:</span>
+                    <span class="font-bold text-slate-700 bg-slate-100 px-1.5 rounded">${formatTargetLabel(opts.targetObj, isKpKb ? 4 : 2)}</span>
+                </div>`;
+                if (opts.showDiffTarget && latestVal !== null) {
+                    let diffTgt = latestVal - opts.targetObj.value;
+                    let isTargetMet = checkTarget(latestVal, opts.targetObj);
+                    let colorClass = isTargetMet ? 'text-emerald-500' : 'text-rose-500';
+                    let sign = diffTgt > 0 ? '+' : '';
+                    let icon = diffTgt > 0 ? 'fa-arrow-trend-up' : (diffTgt < 0 ? 'fa-arrow-trend-down' : 'fa-minus');
+                    let bgClass = colorClass !== 'text-slate-400' ? `bg-${colorClass.split('-')[1]}-50` : 'bg-slate-50';
+
+                    targetInfoHtml += `<div class="flex justify-between items-center text-[10px] mt-1">
+                        <span class="text-slate-400 font-medium">Gap Tgt:</span>
+                        <span class="font-bold ${colorClass} flex items-center gap-1 ${bgClass} px-1.5 rounded shadow-sm"><i class="fas ${icon}"></i> ${sign}${formatNum(diffTgt, decimals)}</span>
+                    </div>`;
+                }
+            }
+
+            // Average Logic
+            let avgHtml = '';
+            if (opts.showAvg !== false) {
+                avgHtml = `<div class="text-[10px] text-slate-500 mt-2 flex items-center bg-slate-50 border border-slate-100 w-fit px-2 py-1 rounded-md shadow-inner">
+                    <span class="font-medium">Avg:</span><span class="font-bold text-slate-700 ml-1">${formatNum(metricData.avg, decimals)}</span><span class="ml-1 text-[9px]">${unit}</span>
+                </div>`;
+            }
+
+            // จัดการตัวพิมพ์ใหญ่ ยกเว้น Kp และ Kb
+            let titleCasing = isKpKb ? 'normal-case' : 'uppercase';
+
+            return `
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-lg transition-all duration-300 relative overflow-hidden group flex flex-col h-full min-h-[185px]">
+                    <div class="absolute top-0 left-0 w-full h-1 ${colorLineClass} opacity-80 group-hover:h-1.5 transition-all"></div>
+                    <p class="text-[11px] xl:text-[11.5px] font-bold text-slate-500 ${titleCasing} tracking-wide mb-2 mt-1 line-clamp-2 min-h-[32px]" title="${title}">${title}</p>
+                    
+                    <div class="flex flex-col sm:flex-row items-stretch flex-1 gap-3">
+                        <div class="flex flex-col justify-start w-full sm:w-[55%] border-b sm:border-b-0 sm:border-r border-slate-100 pb-2 sm:pb-0 sm:pr-3">
+                            <div class="flex flex-col items-start mb-1 w-full">
+                                <span class="text-2xl lg:text-xl 2xl:text-2xl font-black text-slate-800 tracking-tighter leading-none mb-1">${displayMainVal}</span>
+                                ${diffPrevHtml}
+                            </div>
+                            ${avgHtml}
+                            <div class="mt-auto w-full">
+                                ${targetInfoHtml}
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-[45%] flex flex-col justify-center">
+                            <div class="bg-slate-50/50 rounded-lg border border-slate-100 p-1 max-h-[150px] overflow-hidden flex flex-col">
+                                <div class="overflow-y-auto custom-scrollbar pr-1">${yearsHtml}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createCategorySection(title, iconClass, cardsHtml, gridClasses = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4') {
+            return `
+                <div class="bg-white rounded-[2rem] p-6 border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] mb-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-full -z-10 opacity-50"></div>
+                    <h4 class="text-[15px] font-black text-slate-800 mb-5 flex items-center pb-3 border-b border-slate-100">
+                        <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center mr-3 border border-slate-100 shadow-sm"><i class="fas ${iconClass}"></i></div>
+                        ${title}
+                    </h4>
+                    <div class="grid ${gridClasses} gap-5">${cardsHtml}</div>
+                </div>
+            `;
+        }
+
+        // UPDATED: formatTargetLabel to support decimal places formatting
+        function formatTargetLabel(tgtObj, decimals = 2) {
+            if (tgtObj.isRange) {
+                return `(${formatNum(tgtObj.value, decimals)}% ± ${formatNum(tgtObj.tolerance, decimals)}%)`;
+            } else {
+                return `(${tgtObj.condition} ${formatNum(tgtObj.value, decimals)}%)`;
+            }
+        }
+
+
+        // NEW: Function to render Milling House Deep Dive (View 1 KPI Cards)
+        function renderMillingHouseDeepDive(data) {
+            const container = document.getElementById('milling-kpi-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const makeCard = (title, key, unit, color, opts) => {
+                let mData = extractMetric(data, key);
+                if (opts.showTarget || opts.showDiffTarget) { opts.targetObj = getMetricTarget(key, null, ''); }
+                if (opts.isLessBetter === undefined && opts.targetObj && opts.targetObj.value !== null) {
+                     if (opts.targetObj.condition.includes('<') || opts.targetObj.condition.includes('≤')) { opts.isLessBetter = true; }
+                }
+                return createMiniKPICard(title, mData, unit, color, opts);
+            }
+
+            let cardsHtml = 
+                makeCard('MIXED JUICE', 'mixedjuiceton', 'Ton', 'bg-teal-500', {showDiffPrev: true, showAvg: true}) +
+                makeCard('MIXED JUICE % CANE', 'mixedjuicecane', '%', 'bg-teal-500', {showDiffPrev: true, showAvg: true}) +
+                makeCard('BRIX% FIRST JUICE', 'brixfirstjuice', '%', 'bg-emerald-600', {showAvg: true}) +
+                makeCard('Kp', 'kp', '', 'bg-indigo-500', {showAvg: false, showTarget: true, showDiffTarget: true}) +
+                makeCard('IMBIBITION % CANE', 'imbibitioncane', '%', 'bg-cyan-600', {showDiffPrev: true, showAvg: true}) +
+                makeCard('IMBIBITION % FIBER', 'imbibitionfiber', '%', 'bg-cyan-600', {showDiffPrev: true, showAvg: true}) +
+                makeCard('Kb', 'kb', '', 'bg-indigo-500', {showAvg: false, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY DROP % MIXED JUICE', 'puritydropmixedjuice', '%', 'bg-amber-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('DUE TO MILLING', 'duetomillinghr', 'HR.', 'bg-rose-500', {showDiffPrev: true, showAvg: true, isLessBetter: true});
+            
+            container.innerHTML = cardsHtml;
+        }
+
+        // Function to render Boiling House Section (View 5)
+        function renderBoilingHouse(data) {
+            const container = document.getElementById('boiling-kpi-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const makeCard = (title, key, unit, color, opts) => {
+                let mData = extractMetric(data, key);
+                if (opts.showTarget || opts.showDiffTarget) { opts.targetObj = getMetricTarget(key, null, ''); }
+                if (opts.isLessBetter === undefined && opts.targetObj && opts.targetObj.value !== null) {
+                     if (opts.targetObj.condition.includes('<') || opts.targetObj.condition.includes('≤')) { opts.isLessBetter = true; }
+                }
+                return createMiniKPICard(title, mData, unit, color, opts);
+            }
+
+            let clarifyCards = 
+                makeCard('CLARIFIED JUICE TURBIDITY', 'clarifiedjuiceturbidity', '', 'bg-amber-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('RAW SYRUP % BRIX', 'rawsyrupbrix', '%', 'bg-amber-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('FILTER CAKE % Cane', 'filtercakecane', '%', 'bg-orange-600', {showDiffPrev: true, showAvg: true, isLessBetter: true}) +
+                makeCard('POL % FILTER CAKE', 'polfiltercake', '%', 'bg-orange-600', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('MOISTURE % FILTER CAKE', 'moisturefiltercake', '%', 'bg-orange-600', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true});
+
+            let crystalCards = 
+                makeCard('CRYSTAL CONTENT A-MASS', 'crystalcontentamass', '%', 'bg-blue-500', {showAvg: true}) +
+                makeCard('CRYSTAL CONTENT B-MASS', 'crystalcontentbmass', '%', 'bg-blue-500', {showAvg: true}) +
+                makeCard('CRYSTAL CONTENT C-MASS', 'crystalcontentcmass', '%', 'bg-blue-500', {showAvg: true}) +
+                makeCard('CRYSTAL CONTENT A-MASS_NUTSH', 'crystalcontentamassnutsh', '%', 'bg-indigo-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('CRYSTAL CONTENT B-MASS_NUTSH', 'crystalcontentbmassnutsh', '%', 'bg-indigo-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('CRYSTAL CONTENT C-MASS_NUTSH', 'crystalcontentcmassnutsh', '%', 'bg-indigo-500', {showAvg: true, showTarget: true, showDiffTarget: true});
+
+            let purityCards = 
+                makeCard('PURITY DROP A-MASS', 'puritydropamass', '%', 'bg-purple-500', {showAvg: true}) +
+                makeCard('PURITY DROP B-MASS', 'puritydropbmass', '%', 'bg-purple-500', {showAvg: true}) +
+                makeCard('PURITY DROP C-MASS', 'puritydropcmass', '%', 'bg-purple-500', {showAvg: true}) +
+                makeCard('PURITY DROP(NUTSH) A-MASS', 'puritydropnutshamass', '%', 'bg-fuchsia-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY DROP(NUTSH) B-MASS', 'puritydropnutshbmass', '%', 'bg-fuchsia-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY DROP(NUTSH) C-MASS', 'puritydropnutshcmass', '%', 'bg-fuchsia-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY RISE (NUTSH) A-Mol', 'purityrisenutshamol', '%', 'bg-violet-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY RISE (NUTSH) B-Mol', 'purityrisenutshbmol', '%', 'bg-violet-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('PURITY RISE (NUTSH) C-Mol', 'purityrisenutshcmol', '%', 'bg-violet-500', {showAvg: true, showTarget: true, showDiffTarget: true});
+
+            let exhaustCards = 
+                makeCard('EXHAUSTION A-MASS', 'exhaustionamass', '%', 'bg-pink-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('EXHAUSTION B-MASS', 'exhaustionbmass', '%', 'bg-pink-500', {showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('EXHAUSTION C-MASS', 'exhaustioncmass', '%', 'bg-pink-500', {showAvg: true, showTarget: true, showDiffTarget: true});
+
+            container.innerHTML = 
+                createCategorySection('1. หมวดทำใส & ต้มระเหย (CLARIFIED & EVAPORATION)', 'fa-filter text-amber-500', clarifyCards) +
+                createCategorySection('2. ความสามารถเปลี่ยนน้ำเชื่อมให้เป็นผลึกน้ำตาล (CRYSTAL CONTENT)', 'fa-gem text-blue-500', crystalCards, 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3') +
+                createCategorySection('3. การลดลงและการเพิ่มขึ้นของค่าความบริสุทธิ์ (PURITY DROP & PURITY RISE)', 'fa-tint-slash text-purple-500', purityCards, 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3') +
+                createCategorySection('4. ค่าการดึงน้ำตาลออกจากกากน้ำตาล (EXHAUSTION)', 'fa-magnet text-pink-500', exhaustCards, 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3');
+        }
+
+        function renderExecutiveKPIs(data) {
+            const container = document.getElementById('kpi-container'); container.innerHTML = '';
+            const latestYear = selectedYears[selectedYears.length - 1];
+            const prevYear = selectedYears.length > 1 ? selectedYears[selectedYears.length - 2] : null;
+            
+            const caneActual = extractMetric(data, 'tonscanecrushedactual');
+            const canePlan = extractMetric(data, 'tonscanecrushedplan');
+            const latestActual = caneActual.years[latestYear] !== undefined ? caneActual.years[latestYear] : 0;
+            const latestPlan = canePlan.years[latestYear] !== undefined ? canePlan.years[latestYear] : 1;
+            const latestPct = latestPlan > 0 ? (latestActual / latestPlan) * 100 : 0;
+            
+            let diffActualNum = '-'; let diffPlanNum = '-'; let diffActualClass = 'text-slate-300'; let diffPlanClass = 'text-slate-400'; let diffIcon = '';
+            if (prevYear) {
+                const prevActual = caneActual.years[prevYear] !== undefined ? caneActual.years[prevYear] : 0;
+                const prevPlan = canePlan.years[prevYear] !== undefined ? canePlan.years[prevYear] : 0;
+                const actualDiff = latestActual - prevActual; const planDiff = latestPlan - prevPlan;
+                diffActualNum = (actualDiff > 0 ? '+' : '') + formatNum(actualDiff);
+                diffPlanNum = (planDiff > 0 ? '+' : '') + formatNum(planDiff);
+                diffActualClass = actualDiff > 0 ? 'text-emerald-500' : (actualDiff < 0 ? 'text-rose-500' : 'text-slate-500');
+                diffPlanClass = planDiff > 0 ? 'text-emerald-500' : (planDiff < 0 ? 'text-rose-500' : 'text-slate-500');
+                diffIcon = actualDiff > 0 ? '<i class="fas fa-arrow-up text-lg md:text-2xl mr-1.5"></i>' : (actualDiff < 0 ? '<i class="fas fa-arrow-down text-lg md:text-2xl mr-1.5"></i>' : '');
+            }
+
+            let tkpRankHtml = '';
+            if (isBenchmarkLoaded && benchmarkFactories.length > 0) {
+                const caneMetric = benchmarkMetricsList.find(m => cleanStr(m).includes('tonscanecrushedactual'));
+                if (caneMetric) {
+                    let scores = [];
+                    benchmarkFactories.forEach(f => {
+                        let val = benchmarkData[f] && benchmarkData[f][latestYear] && benchmarkData[f][latestYear][caneMetric] !== null && benchmarkData[f][latestYear][caneMetric] !== undefined ? benchmarkData[f][latestYear][caneMetric] : null;
+                        if(val !== null) scores.push({ factory: f, value: val });
+                    });
+
+                    if (scores.length > 0) {
+                        scores.sort((a, b) => b.value - a.value);
+                        const tkpIndex = scores.findIndex(s => cleanStr(s.factory).includes('tkp') || cleanStr(s.factory).includes('ทิพย์กำแพงเพชร'));
+                        
+                        if (tkpIndex !== -1) {
+                            const rank = tkpIndex + 1; const totalFactories = scores.length;
+                            let rankBg = 'from-slate-50 to-slate-100 border-slate-200'; let rankText = 'text-slate-600'; let rankIconText = 'text-slate-400'; let iconHtml = '<i class="fas fa-award"></i>';
+                            if (rank === 1) { rankBg = 'from-amber-50 to-orange-50 border-amber-200'; rankText = 'text-amber-700'; rankIconText = 'text-amber-500'; iconHtml = '<i class="fas fa-medal"></i>'; } 
+                            else if (rank === 2) { rankBg = 'from-slate-50 to-gray-100 border-gray-300'; rankText = 'text-gray-700'; rankIconText = 'text-gray-400'; iconHtml = '<i class="fas fa-medal"></i>'; } 
+                            else if (rank === 3) { rankBg = 'from-orange-50 to-amber-100 border-orange-300'; rankText = 'text-orange-800'; rankIconText = 'text-orange-500'; iconHtml = '<i class="fas fa-medal"></i>'; }
+                            tkpRankHtml = `
+                                <div class="flex flex-col pl-4 xl:pl-8 border-l border-slate-200 justify-center">
+                                    <span class="text-[10px] text-slate-400 mb-1.5 font-bold uppercase tracking-wider">Ranking ในกลุ่ม 6 รง.</span>
+                                    <div class="bg-gradient-to-r ${rankBg} border rounded-xl px-4 py-2 flex items-center gap-3 shadow-inner">
+                                        <div class="text-3xl ${rankIconText} drop-shadow-sm">${iconHtml}</div>
+                                        <div class="flex flex-col">
+                                            <span class="text-[10px] font-bold ${rankText} uppercase opacity-80">ปี ${latestYear}</span>
+                                            <span class="text-base font-black ${rankText} tracking-tight">อันดับ ${rank} <span class="text-xs font-semibold opacity-70">จาก ${totalFactories}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+            }
+            
+            let caneTopHtml = `
+                <div class="flex flex-wrap items-center gap-4 xl:gap-8 mb-4 mt-2">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-slate-400 mb-1.5 font-bold uppercase tracking-wider">ปีล่าสุด (${latestYear})</span>
+                        <div class="flex items-baseline mb-1.5"><span class="text-4xl lg:text-5xl font-black text-emerald-600 tracking-tighter drop-shadow-sm">${formatNum(latestActual)}</span></div>
+                        <div class="text-xs text-slate-500 ml-1">เป้าหมาย: <span class="font-bold text-slate-700">${formatNum(latestPlan)}</span> <span class="mx-1.5 text-slate-300">|</span> คิดเป็น: <span class="font-bold ${latestPct >= 100 ? 'text-emerald-600' : (latestPct >= 80 ? 'text-amber-500' : 'text-rose-500')}">${formatNum(latestPct)}%</span></div>
+                    </div>
+                    <div class="flex flex-col pl-4 xl:pl-8 border-l border-slate-200">
+                        <span class="text-[10px] text-slate-400 mb-1.5 font-bold uppercase tracking-wider">ผลต่าง (Diff) เทียบปี ${prevYear ? prevYear : '-'}</span>
+                        <div class="flex items-baseline mb-1.5"><span class="text-4xl lg:text-5xl font-black ${diffActualClass} tracking-tighter whitespace-nowrap drop-shadow-sm">${diffIcon}${diffActualNum}</span></div>
+                        <div class="text-xs text-slate-500 ml-1">ผลต่าง Plan: <span class="font-bold ${diffPlanClass}">${diffPlanNum}</span></div>
+                    </div>
+                    ${tkpRankHtml}
+                </div>
+                <div class="text-xs text-slate-600 flex items-center bg-slate-50 w-fit px-3 py-1.5 rounded-lg border border-slate-200 shadow-inner mt-2">
+                    <i class="fas fa-chart-line mr-2 text-slate-400"></i> ค่าเฉลี่ย (Avg): <span class="font-black text-slate-700 ml-2">${formatNum(caneActual.avg)}</span> <span class="text-[10px] font-bold ml-1 text-slate-400">T.</span>
+                </div>
+            `;
+            
+            let caneYearsHtml = '';
+            selectedYears.forEach(y => {
+                let actual = caneActual.years[y] !== undefined ? caneActual.years[y] : 0; let plan = canePlan.years[y] !== undefined ? canePlan.years[y] : 1;
+                let pct = plan > 0 ? (actual / plan) * 100 : 0;
+                let pctColor = pct >= 100 ? 'bg-emerald-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-rose-500');
+                let isLatest = (y === latestYear);
+                caneYearsHtml += `
+                <div class="flex items-center justify-between text-xs py-2.5 border-b border-slate-100 last:border-0 ${isLatest ? 'bg-emerald-50/50' : 'hover:bg-slate-50'} px-4 transition-colors rounded-md">
+                    <span class="${isLatest ? 'text-emerald-700' : 'text-slate-700'} font-bold w-14">${y}</span>
+                    <div class="flex-1 px-3"><div class="w-full bg-slate-200/80 rounded-full h-1.5 relative overflow-hidden"><div class="${pctColor} h-1.5 rounded-full" style="width: ${Math.min(pct, 100)}%"></div></div></div>
+                    <div class="text-right min-w-[130px] flex flex-col justify-center">
+                        <span class="font-black ${isLatest ? 'text-emerald-700' : 'text-slate-800'} text-xs tracking-tight">${formatNum(actual)}</span>
+                        <span class="text-[9px] text-slate-500 leading-none mt-1">Plan: <span class="font-semibold">${formatNum(plan)}</span> <span class="font-bold ${pct >= 100 ? 'text-emerald-600' : (pct >= 80 ? 'text-amber-500' : 'text-rose-500')} ml-0.5">(${formatNum(pct)}%)</span></span>
+                    </div>
+                </div>`;
+            });
+
+            let caneActualCard = `
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-lg transition-all duration-300 relative overflow-hidden col-span-full flex flex-col h-full">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+                    <p class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 mt-1">TONS CANE CRUSHED ACTUAL VS PLAN</p>
+                    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 flex-1 mt-2">
+                        <div class="flex flex-col justify-center border-b xl:border-b-0 xl:border-r border-slate-100 pb-5 xl:pb-0 xl:pr-8 xl:col-span-3">
+                            ${caneTopHtml}
+                        </div>
+                        <div class="xl:col-span-1 flex flex-col justify-start">
+                            <div class="bg-slate-50/50 rounded-xl border border-slate-200/80 overflow-hidden mt-2 xl:mt-0 h-full max-h-[160px]">
+                                <div class="overflow-y-auto h-full custom-scrollbar pr-2 py-1">${caneYearsHtml}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const makeCard = (title, key, unit, color, opts) => {
+                let mData = extractMetric(data, key);
+                if (opts.showTarget || opts.showDiffTarget) { opts.targetObj = getMetricTarget(key, null, ''); }
+                if (opts.isLessBetter === undefined && opts.targetObj && opts.targetObj.value !== null) {
+                     if (opts.targetObj.condition.includes('<') || opts.targetObj.condition.includes('≤')) { opts.isLessBetter = true; }
+                }
+                return createMiniKPICard(title, mData, unit, color, opts);
+            }
+
+            let caneCards = caneActualCard + 
+                makeCard('C.C.S. (OCSB)', 'ccsocsb', '%', 'bg-emerald-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('FIBER % CANE', 'fibercane', '%', 'bg-emerald-500', {showDiffPrev: true, showAvg: true, isLessBetter: true}) +
+                makeCard('POL % CANE', 'polcane', '%', 'bg-emerald-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('TRASH %', 'trash', '%', 'bg-emerald-500', {showDiffPrev: true, showAvg: true, isLessBetter: true});
+            
+
+            let yieldCards = 
+                makeCard('YIELD SUGAR', 'yieldsugar', 'KG/TC', 'bg-blue-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('YIELD % C.C.S.', 'yieldccs', '%', 'bg-blue-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('YIELD% 96 POL.10 C.C.S.', 'yield96pol10ccs', '%', 'bg-blue-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true});
+
+            let recCards = 
+                makeCard('BOILING HOUSE RECOVERY', 'boilinghouserecovery', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('OVERALL RECOVERY', 'overallrecovery', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('COEFFICIENT OF WORK', 'coefficientofwork', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true}) +
+                makeCard('TOTAL LOSS', 'totalloss', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('LOSS IN BAGASSE', 'lossinbagasse', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('LOSS IN FILTER CAKE', 'lossinfiltercake', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('LOSS IN FINAL MOLASSES', 'lossinfinalmolasses', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true}) +
+                makeCard('LOSS IN UNDETERMINED', 'lossinundetermined', '%', 'bg-purple-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true});
+
+            const stopDueMilling = extractMetric(data, 'duetomillinghr');
+            const stopDueBoil = extractMetric(data, 'duetoboilinghousehr');
+            let combinedMB = { name: 'SUM DUE TO MILLING + BOILING HOUSE', avg: 0, years: {}, isPercent: false }; 
+            let sumMB = 0;
+            selectedYears.forEach(y => {
+                let m = stopDueMilling.years[y] !== undefined ? stopDueMilling.years[y] : 0; 
+                let b = stopDueBoil.years[y] !== undefined ? stopDueBoil.years[y] : 0;
+                combinedMB.years[y] = m + b; sumMB += (m + b);
+            });
+            combinedMB.avg = selectedYears.length > 0 ? sumMB / selectedYears.length : 0;
+
+            let stopCards = 
+                makeCard('DUE TO CANE', 'duetocanehr', 'HR.', 'bg-rose-500', {showDiffPrev: true, showAvg: true, isLessBetter: true}) +
+                makeCard('DUE TO BOILING HOUSE', 'duetoboilinghousehr', 'HR.', 'bg-rose-500', {showDiffPrev: true, showAvg: true, isLessBetter: true}) +
+                createMiniKPICard('SUM DUE TO MILLING + BOILING HOUSE', combinedMB, 'HR.', 'bg-rose-500', {showDiffPrev: true, showAvg: true, isLessBetter: true}) +
+                makeCard('STOPPAGE (TOTAL)', 'stoppagehr', 'HR.', 'bg-rose-500', {showDiffPrev: true, showAvg: true, isLessBetter: true});
+            
+            let steamCards = 
+                makeCard('Steam Consumption', 'steamconsumptionkgtc', 'KG/TC', 'bg-cyan-500', {showDiffPrev: true, showAvg: true, showTarget: true, showDiffTarget: true, isLessBetter: true});
+
+            container.innerHTML = 
+                createCategorySection('1. อ้อย (CANE)', 'fa-seedling text-emerald-500', caneCards) +
+                createCategorySection('2. ประสิทธิภาพ (YIELD SUGAR)', 'fa-cubes text-blue-500', yieldCards) +
+                createCategorySection('3. ประสิทธิภาพการดึงน้ำตาลกลับคืน & การสูญเสีย (RECOVERY & LOSS)', 'fa-balance-scale text-purple-500', recCards, 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4') +
+                createCategorySection('4. การหยุดหีบ (STOPPAGE)', 'fa-stopwatch text-rose-500', stopCards, 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4') +
+                createCategorySection('5. พลังงาน (STEAM & ELECTRICITY)', 'fa-bolt text-cyan-500', steamCards);
+        }
+
+        function drawGauge(canvasId, value, maxVal, isTargetMet) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (charts[canvasId]) charts[canvasId].destroy();
+            charts[canvasId] = new Chart(ctx, {
+                type: 'doughnut', 
+                data: { 
+                    labels: ['Actual', 'Remaining'], 
+                    datasets: [{ 
+                        data: [value, Math.max(0, maxVal - value)], 
+                        backgroundColor: [isTargetMet ? '#14b8a6' : '#f43f5e', '#f1f5f9'], 
+                        borderWidth: 0, 
+                        circumference: 180, 
+                        rotation: 270, 
+                        borderRadius: [4, 0] 
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: true, 
+                    aspectRatio: 1.8, 
+                    cutout: '70%', 
+                    plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } },
+                    layout: { padding: { top: 5, bottom: 5 } } 
+                }
+            });
+        }
+
+        function renderGaugeCharts(data) {
+            const latestYear = selectedYears[selectedYears.length - 1];
+
+            // ดึงค่า Target สำหรับ 4 ตัวแปรหลักของ Milling House
+            const tgtPolExt = getMetricTarget('polextraction', 96.69, '≥');
+            const tgtMillLoss = getMetricTarget('millingloss', 4.0, '≤');
+            const tgtPrepIndex = getMetricTarget('preparationindex', 91.05, '≥');
+            const tgtFirstMill = getMetricTarget('firstmillextraction', 75.0, '≥');
+            const tgtPolBagasse = getMetricTarget('polbagasse', 1.65, '≤');
+            const tgtMoistBagasse = getMetricTarget('moisturebagasse', 48.0, '≤');
+
+            const polExtData = extractMetric(data, 'polextraction');
+            const millLossData = extractMetric(data, 'millingloss');
+            const piData = extractMetric(data, 'preparationindex');
+            const fmData = extractMetric(data, 'firstmillextraction');
+            const polBagasseData = extractMetric(data, 'polbagasse');
+            const moistureBagasseData = extractMetric(data, 'moisturebagasse');
+
+            const polExtLatest = polExtData.years[latestYear] !== undefined && polExtData.years[latestYear] !== null ? polExtData.years[latestYear] : 0;
+            const millLossLatest = millLossData.years[latestYear] !== undefined && millLossData.years[latestYear] !== null ? millLossData.years[latestYear] : 0;
+            const piLatest = piData.years[latestYear] !== undefined && piData.years[latestYear] !== null ? piData.years[latestYear] : 0;
+            const fmLatest = fmData.years[latestYear] !== undefined && fmData.years[latestYear] !== null ? fmData.years[latestYear] : 0;
+            const polBagasseLatest = polBagasseData.years[latestYear] !== undefined && polBagasseData.years[latestYear] !== null ? polBagasseData.years[latestYear] : 0;
+            const moistureBagasseLatest = moistureBagasseData.years[latestYear] !== undefined && moistureBagasseData.years[latestYear] !== null ? moistureBagasseData.years[latestYear] : 0;
+
+            document.getElementById('gaugePolYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeLossYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugePIYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeFMYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugePolBagasseYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+            document.getElementById('gaugeMoistureBagasseYear').innerText = latestYear ? `ปี ${latestYear}` : 'ปี -';
+
+            document.getElementById('gaugePolValue').innerText = formatNum(polExtLatest) + '%';
+            document.getElementById('gaugeLossValue').innerText = formatNum(millLossLatest) + '%';
+            document.getElementById('gaugePIValue').innerText = formatNum(piLatest) + '%';
+            document.getElementById('gaugeFMValue').innerText = formatNum(fmLatest) + '%';
+            document.getElementById('gaugePolBagasseValue').innerText = formatNum(polBagasseLatest) + '%';
+            document.getElementById('gaugeMoistureBagasseValue').innerText = formatNum(moistureBagasseLatest) + '%';
+
+            document.getElementById('gaugePolAvg').innerText = formatNum(polExtData.avg) + '%';
+            document.getElementById('gaugeLossAvg').innerText = formatNum(millLossData.avg) + '%';
+            document.getElementById('gaugePIAvg').innerText = formatNum(piData.avg) + '%';
+            document.getElementById('gaugeFMAvg').innerText = formatNum(fmData.avg) + '%';
+            document.getElementById('gaugePolBagasseAvg').innerText = formatNum(polBagasseData.avg) + '%';
+            document.getElementById('gaugeMoistureBagasseAvg').innerText = formatNum(moistureBagasseData.avg) + '%';
+
+            // อัปเดตข้อความเงื่อนไขเป้าหมายบน UI
+            document.getElementById('gaugePolTargetText').innerText = formatTargetLabel(tgtPolExt);
+            document.getElementById('gaugeLossTargetText').innerText = formatTargetLabel(tgtMillLoss);
+            document.getElementById('gaugePITargetText').innerText = formatTargetLabel(tgtPrepIndex);
+            document.getElementById('gaugeFMTargetText').innerText = formatTargetLabel(tgtFirstMill);
+            document.getElementById('gaugePolBagasseTargetText').innerText = formatTargetLabel(tgtPolBagasse);
+            document.getElementById('gaugeMoistureBagasseTargetText').innerText = formatTargetLabel(tgtMoistBagasse);
+
+            // วาดกราฟหน้าปัด
+            drawGauge('gaugePIChart', piLatest, 100, checkTarget(piLatest, tgtPrepIndex));
+            drawGauge('gaugeFMChart', fmLatest, 100, checkTarget(fmLatest, tgtFirstMill));
+            drawGauge('gaugePolChart', polExtLatest, 100, checkTarget(polExtLatest, tgtPolExt));
+            drawGauge('gaugePolBagasseChart', polBagasseLatest, 5, checkTarget(polBagasseLatest, tgtPolBagasse));
+            drawGauge('gaugeMoistureBagasseChart', moistureBagasseLatest, 100, checkTarget(moistureBagasseLatest, tgtMoistBagasse));
+            drawGauge('gaugeLossChart', millLossLatest, 10, checkTarget(millLossLatest, tgtMillLoss)); 
+        }
+
+        // NEW: Function to render the Combined Loss Doughnut Chart with Center Total Loss
+        function renderLossDoughnutChart(data) {
+            const ctx = document.getElementById('lossDoughnutChart').getContext('2d');
+            if (charts['lossDoughnut']) charts['lossDoughnut'].destroy();
+
+            const latestYear = selectedYears[selectedYears.length - 1];
+            const prevYear = selectedYears.length > 1 ? selectedYears[selectedYears.length - 2] : null;
+
+            // Extract Data
+            const lossBagasse = extractMetric(data, 'lossinbagasse'); 
+            const lossFilter = extractMetric(data, 'lossinfiltercake'); 
+            const lossMolasses = extractMetric(data, 'lossinfinalmolasses');
+            const lossUndet = extractMetric(data, 'lossinundetermined');
+            const totalLoss = extractMetric(data, 'totalloss');
+
+            // Values for latest year
+            const valBagasse = lossBagasse.years[latestYear] || 0;
+            const valFilter = lossFilter.years[latestYear] || 0;
+            const valMolasses = lossMolasses.years[latestYear] || 0;
+            const valUndet = lossUndet.years[latestYear] || 0;
+            
+            const totalLatest = totalLoss.years[latestYear] !== undefined ? totalLoss.years[latestYear] : null;
+            const totalPrev = prevYear && totalLoss.years[prevYear] !== undefined ? totalLoss.years[prevYear] : null;
+
+            document.getElementById('lossDoughnutYear').innerText = `ปี ${latestYear || '-'}`;
+            document.getElementById('totalLossCenterValue').innerText = totalLatest !== null ? `${formatNum(totalLatest)}%` : '-';
+
+            // Draw Doughnut
+            charts['lossDoughnut'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: { 
+                    // UPDATED ORDER: Filter Cake -> Bagasse -> Final Molasses -> Undetermined
+                    labels: ['Filter Cake', 'Bagasse', 'Final Molasses', 'Undetermined'], 
+                    datasets: [{ 
+                        data: [valFilter, valBagasse, valMolasses, valUndet], 
+                        backgroundColor: ['#8b5cf6', '#f59e0b', '#3b82f6', '#f43f5e'], 
+                        borderWidth: 2, 
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    cutout: '82%', 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: 'Sarabun', size: 10, weight: 'bold' }, padding: 15 } },
+                        datalabels: { 
+                            color: '#fff', 
+                            font: { size: 10, weight: 'bold' }, 
+                            formatter: (val) => val > 0 ? formatNum(val) + '%' : '',
+                            backgroundColor: (context) => context.dataset.backgroundColor[context.dataIndex],
+                            borderRadius: 4,
+                            padding: 2,
+                            display: function(context) { return context.dataset.data[context.dataIndex] > 1; } // Hide small labels
+                        } 
+                    }
+                }
+            });
+
+            // Update Center Details (YoY & Target)
+            const detailsContainer = document.getElementById('totalLossCenterDetails');
+            detailsContainer.innerHTML = '';
+            let detailsHtml = '';
+
+            if (totalLatest !== null && totalPrev !== null) {
+                let diff = totalLatest - totalPrev;
+                let colorClass = diff > 0 ? 'text-rose-500' : (diff < 0 ? 'text-emerald-500' : 'text-slate-400');
+                let icon = diff > 0 ? 'fa-caret-up' : (diff < 0 ? 'fa-caret-down' : 'fa-minus');
+                let sign = diff > 0 ? '+' : '';
+                
+                detailsHtml += `
+                    <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold ${colorClass} bg-slate-50/80 px-2.5 py-1 rounded-full shadow-sm border border-slate-100 mb-1.5 backdrop-blur-sm">
+                        <span class="text-[9px] text-slate-500 uppercase tracking-widest">YoY:</span>
+                        <i class="fas ${icon}"></i> ${sign}${formatNum(diff)}%
+                    </div>
+                `;
+            }
+
+            const tgtObj = getMetricTarget('totalloss', null, '');
+            if (tgtObj && tgtObj.value !== null && totalLatest !== null) {
+                let diffTgt = totalLatest - tgtObj.value;
+                let isTargetMet = checkTarget(totalLatest, tgtObj); // Total Loss usually < is better
+                let colorClass = isTargetMet ? 'text-emerald-500' : 'text-rose-500';
+                let sign = diffTgt > 0 ? '+' : '';
+                let icon = diffTgt > 0 ? 'fa-arrow-trend-up' : (diffTgt < 0 ? 'fa-arrow-trend-down' : 'fa-minus');
+
+                detailsHtml += `
+                    <div class="flex flex-col items-center pt-2 border-t border-slate-200/70 w-[80%] mx-auto">
+                        <span class="text-[10px] text-slate-500 font-medium tracking-wide">Target: <span class="font-bold text-slate-700">${formatTargetLabel(tgtObj)}</span></span>
+                        <span class="text-[10px] font-bold ${colorClass} flex items-center gap-1 mt-0.5"><span class="text-[9px] text-slate-400 font-medium">Gap:</span><i class="fas ${icon}"></i> ${sign}${formatNum(diffTgt)}%</span>
+                    </div>
+                `;
+            }
+            
+            detailsContainer.innerHTML = detailsHtml;
+        }
+
+        function renderLineChart(data) {
+            const ctx = document.getElementById('recoveryLineChart').getContext('2d');
+            if (charts['recLine']) charts['recLine'].destroy();
+            const bhRecovery = extractMetric(data, 'boilinghouserecovery'); const ovRecovery = extractMetric(data, 'overallrecovery');
+            
+            // หาค่าต่ำสุดที่แท้จริงจากข้อมูลที่มี เพื่อนำมาลบ 5 สำหรับการ Zoom-in แกน Y
+            let allValidVals = [];
+            selectedYears.forEach(y => {
+                if (bhRecovery.years[y] !== undefined && bhRecovery.years[y] !== null && bhRecovery.years[y] > 0) allValidVals.push(bhRecovery.years[y]);
+                if (ovRecovery.years[y] !== undefined && ovRecovery.years[y] !== null && ovRecovery.years[y] > 0) allValidVals.push(ovRecovery.years[y]);
+            });
+            let calculatedMin = allValidVals.length > 0 ? Math.max(0, Math.min(...allValidVals) - 5) : 0;
+
+            charts['recLine'] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: selectedYears, datasets: [ { label: 'Boiling House Recovery', data: selectedYears.map(y => bhRecovery.years[y] !== undefined ? bhRecovery.years[y] : null), borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#fff', pointBorderColor: '#ec4899', pointBorderWidth: 2, pointRadius: 5 }, { label: 'Overall Recovery', data: selectedYears.map(y => ovRecovery.years[y] !== undefined ? ovRecovery.years[y] : null), borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.1)', borderWidth: 3, fill: true, tension: 0.4, pointBackgroundColor: '#fff', pointBorderColor: '#14b8a6', pointBorderWidth: 2, pointRadius: 5 } ] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { family: 'Sarabun', size: 11, weight: 'bold' } } }, datalabels: { align: 'top', color: '#475569', font: { size: 11, weight: 'bold', family: 'Sarabun' }, formatter: (val) => val !== null ? formatNum(val) + '%' : '', offset: 6 } }, scales: { x: { grid: { display: false } }, y: { title: { display: true, text: '% Recovery', font: { weight: 'bold' } }, grid: { borderDash: [4, 4], color: '#e2e8f0' }, min: calculatedMin } } }
+            });
+        }
+
+        function renderDataTable(data) {
+            const tbody = document.getElementById('dataTableBody'); tbody.innerHTML = '';
+            
+            const colPlan = findCol('tonscanecrushedplan');
+            const colActual = findCol('tonscanecrushedactual');
+            const colFiber = findCol('fibercane');
+            const colCcs = findCol('ccsocsb');
+            const colPolCane = findCol('polcane');
+            const colBhr = findCol('boilinghouserecovery');
+            const colOvr = findCol('overallrecovery');
+            const colLossBagasse = findCol('lossinbagasse');
+            const colLossFilter = findCol('lossinfiltercake');
+            const colLossMolasses = findCol('lossinfinalmolasses');
+            const colLossUndet = findCol('lossinundetermined');
+            const colYield96 = findCol('yield96pol');
+            const colYieldCcs = findCol('yieldccs');
+            const colYieldSugar = findCol('yieldsugar');
+            const colDueMilling = findCol('duetomillinghr');
+            const colDueBoiling = findCol('duetoboilinghousehr');
+
+            const sortedData = [...data].sort((a, b) => b["Corp Year"].localeCompare(a["Corp Year"]));
+
+            sortedData.forEach(row => {
+                let valMilling = cleanNumber(row[colDueMilling]) !== null ? cleanNumber(row[colDueMilling]) : 0;
+                let valBoiling = cleanNumber(row[colDueBoiling]) !== null ? cleanNumber(row[colDueBoiling]) : 0;
+                let valSumMB = valMilling + valBoiling;
+
+                const tr = document.createElement('tr'); tr.className = "hover:bg-slate-50 transition-colors whitespace-nowrap";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-bold text-slate-800 sticky left-0 bg-white/90 backdrop-blur-sm z-10 border-r border-slate-100">${row["Corp Year"] || '-'}</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colPlan]))}</td>
+                    <td class="px-4 py-3 text-right text-emerald-700 font-bold">${formatNum(cleanNumber(row[colActual]))}</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colFiber]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colCcs]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colPolCane]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colBhr]))}%</td>
+                    <td class="px-4 py-3 text-right text-blue-600 font-bold">${formatNum(cleanNumber(row[colOvr]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium text-amber-600">${formatNum(cleanNumber(row[colLossBagasse]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium text-purple-600">${formatNum(cleanNumber(row[colLossFilter]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium text-indigo-600">${formatNum(cleanNumber(row[colLossMolasses]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium text-rose-500">${formatNum(cleanNumber(row[colLossUndet]))}%</td>
+                    <td class="px-4 py-3 text-right font-medium">${formatNum(cleanNumber(row[colYield96]))}%</td>
+                    <td class="px-4 py-3 text-right font-bold text-emerald-600">${formatNum(cleanNumber(row[colYieldCcs]))}%</td>
+                    <td class="px-4 py-3 text-right font-bold text-slate-700">${formatNum(cleanNumber(row[colYieldSugar]))}</td>
+                    <td class="px-4 py-3 text-right font-medium text-orange-600">${formatNum(valMilling)}</td>
+                    <td class="px-4 py-3 text-right font-medium text-orange-600">${formatNum(valBoiling)}</td>
+                    <td class="px-4 py-3 text-right font-bold text-rose-600">${formatNum(valSumMB)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderCustomCompareChart(data) {
+            const ctx = document.getElementById('customCompareChart').getContext('2d');
+            if (charts['customCompare']) charts['customCompare'].destroy();
+            const primaryMetric = extractMetric(data, 'tonscanecrushedactual');
+            const select1 = document.getElementById('customCompareSelect'); const val1 = select1.value;
+            const select2 = document.getElementById('customCompareSelect2'); const val2 = select2.value;
+            const select3 = document.getElementById('customCompareSelect3'); const val3 = select3 ? select3.value : null;
+            
+            const datasets = [];
+            const reversedYears = [...selectedYears].reverse();
+            
+            // Primary Bar (Y-Axis 1 - Left)
+            // แก้ไขบั๊ก Falsy ไม่ให้ข้อมูลหายถ้าค่าเป็น 0
+            datasets.push({
+                type: 'bar',
+                label: primaryMetric.name,
+                data: reversedYears.map(y => primaryMetric.years[y] !== undefined ? primaryMetric.years[y] : null),
+                backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                borderColor: '#10b981',
+                borderWidth: 1,
+                borderRadius: 6,
+                yAxisID: 'yPrimary'
+            });
+
+            const scales = {
+                x: { grid: { display: false } },
+                yPrimary: { 
+                    type: 'linear', 
+                    position: 'left', 
+                    title: { display: true, text: primaryMetric.name, color: '#10b981', font: { weight: 'bold', family: 'Sarabun' } }, 
+                    grid: { borderDash: [4, 4], color: '#e2e8f0' } 
+                }
+            };
+
+            let rightAxisTitle = "";
+            let secMetric1 = null;
+            let secMetric2 = null;
+            let secMetric3 = null;
+
+            // Line 1 (Y-Axis 2 - Right)
+            if (val1) {
+                secMetric1 = extractMetric(data, val1);
+                datasets.push({
+                    type: 'line',
+                    label: secMetric1.name,
+                    data: reversedYears.map(y => secMetric1.years[y] !== undefined ? secMetric1.years[y] : null),
+                    borderColor: '#ec4899',
+                    backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#ec4899',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    yAxisID: 'ySecondary'
+                });
+                rightAxisTitle = secMetric1.name;
+            }
+
+            // Line 2 (Y-Axis 3 - Right)
+            if (val2) {
+                secMetric2 = extractMetric(data, val2);
+                datasets.push({
+                    type: 'line',
+                    label: secMetric2.name,
+                    data: reversedYears.map(y => secMetric2.years[y] !== undefined ? secMetric2.years[y] : null),
+                    borderColor: '#8b5cf6', // Purple
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    borderDash: [5, 5], 
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#8b5cf6',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    yAxisID: 'yTertiary' 
+                });
+                
+                scales.yTertiary = { 
+                    type: 'linear', 
+                    position: 'right', 
+                    title: { display: true, text: secMetric2.name, color: '#8b5cf6', font: { weight: 'bold', family: 'Sarabun' } }, 
+                    grid: { drawOnChartArea: false } 
+                };
+            }
+            
+            // Line 3 (Y-Axis 4 - Right)
+            if (val3) {
+                secMetric3 = extractMetric(data, val3);
+                datasets.push({
+                    type: 'line',
+                    label: secMetric3.name,
+                    data: reversedYears.map(y => secMetric3.years[y] !== undefined ? secMetric3.years[y] : null),
+                    borderColor: '#f59e0b', // Amber/Orange
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    borderDash: [2, 2], // Dotted line
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#f59e0b',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    yAxisID: 'yQuaternary' 
+                });
+                
+                scales.yQuaternary = { 
+                    type: 'linear', 
+                    position: 'right', 
+                    title: { display: true, text: secMetric3.name, color: '#f59e0b', font: { weight: 'bold', family: 'Sarabun' } }, 
+                    grid: { drawOnChartArea: false } 
+                };
+            }
+
+            // Configure Secondary Axis if any line is present
+            if (val1 || val2 || val3) {
+                scales.ySecondary = { 
+                    type: 'linear', 
+                    position: 'right', 
+                    title: { display: true, text: rightAxisTitle, color: '#ec4899', font: { weight: 'bold', family: 'Sarabun' } }, 
+                    grid: { drawOnChartArea: false } 
+                };
+            }
+
+            charts['customCompare'] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: reversedYears, datasets: datasets },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    layout: { padding: { top: 20 } }, 
+                    interaction: { mode: 'index', intersect: false }, 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { font: { family: 'Sarabun', size: 12, weight: 'bold' }, usePointStyle: true, padding: 20 } }, 
+                        datalabels: { 
+                            color: (ctx) => {
+                                if (ctx.datasetIndex === 0) return '#065f46';
+                                if (ctx.datasetIndex === 1) return '#be185d';
+                                if (ctx.datasetIndex === 2) return '#5b21b6';
+                                return '#b45309'; // amber text
+                            }, 
+                            font: { size: 11, weight: 'bold', family: 'Sarabun' }, 
+                            formatter: (val, context) => { 
+                                if (val === null || val === undefined) return ''; 
+                                let isPct = false;
+                                if (context.datasetIndex === 1 && secMetric1 && secMetric1.isPercent) isPct = true;
+                                if (context.datasetIndex === 2 && secMetric2 && secMetric2.isPercent) isPct = true;
+                                if (context.datasetIndex === 3 && secMetric3 && secMetric3.isPercent) isPct = true;
+                                return formatNum(val) + (isPct ? '%' : ''); 
+                            }, 
+                            anchor: (ctx) => {
+                                if (ctx.datasetIndex === 0) return 'end';
+                                if (ctx.datasetIndex === 1) return 'start';
+                                if (ctx.datasetIndex === 2) return 'end';
+                                return 'center'; // Line 3
+                            }, 
+                            align: (ctx) => {
+                                if (ctx.datasetIndex === 0) return 'top';
+                                if (ctx.datasetIndex === 1) return 'bottom';
+                                if (ctx.datasetIndex === 2) return 'top';
+                                return 'end'; // Line 3 to the right
+                            }, 
+                            offset: (ctx) => {
+                                if (ctx.datasetIndex === 2) return -25;
+                                if (ctx.datasetIndex === 3) return 10;
+                                return 6;
+                            },
+                            backgroundColor: (ctx) => ctx.datasetIndex > 0 ? 'rgba(255,255,255,0.85)' : null, 
+                            borderRadius: 4, 
+                            padding: 2 
+                        } 
+                    }, 
+                    scales: scales 
+                }
+            });
+        }
+
+        // --- 6. Event Listeners Binding ---
+        function setupEventListeners() {
+            document.getElementById('presetViewSelector').addEventListener('change', function(e) {
+                const val = e.target.value;
+                const sections = { 'view0': document.getElementById('view0-container'), 'view1': document.getElementById('view1-container'), 'view6': document.getElementById('view6-container'), 'view5': document.getElementById('view5-container'), 'view2': document.getElementById('view2-container'), 'view3': document.getElementById('view3-container'), 'view4': document.getElementById('view4-container') };
+                if (val === 'all') { Object.values(sections).forEach(s => { s.classList.remove('hidden'); s.classList.add('block'); }); } else { Object.keys(sections).forEach(k => { if (k === val) { sections[k].classList.remove('hidden'); sections[k].classList.add('block'); } else { sections[k].classList.remove('block'); sections[k].classList.add('hidden'); } }); }
+            });
+            document.getElementById('customCompareSelect').addEventListener('change', function() { updateDashboard(); });
+            document.getElementById('customCompareSelect2').addEventListener('change', function() { updateDashboard(); });
+            document.getElementById('customCompareSelect3').addEventListener('change', function() { updateDashboard(); });
+            document.getElementById('benchmarkMetricSelect').addEventListener('change', function() { updateBenchmarkSection(); });
+
+            // Updated File Input Change Listeners for Custom UI
+            document.getElementById('masterFileInput').addEventListener('change', function(e) {
+                if (e.target.files[0]) { 
+                    const fileName = e.target.files[0].name;
+                    const nameDiv = document.getElementById('masterFileName');
+                    nameDiv.innerText = fileName;
+                    nameDiv.classList.remove('bg-slate-700', 'text-slate-300', 'border-slate-500', 'group-hover:bg-slate-600');
+                    nameDiv.classList.add('bg-emerald-500', 'text-white', 'border-emerald-400');
+                    
+                    Papa.parse(e.target.files[0], { header: true, skipEmptyLines: true, complete: function(results) { processMasterFile(results.data); } }); 
+                }
+            });
+            document.getElementById('dimFileInput').addEventListener('change', function(e) {
+                if (e.target.files[0]) { 
+                    const fileName = e.target.files[0].name;
+                    const nameDiv = document.getElementById('dimFileName');
+                    nameDiv.innerText = fileName;
+                    nameDiv.classList.remove('bg-slate-700', 'text-slate-300', 'border-slate-500', 'group-hover:bg-slate-600');
+                    nameDiv.classList.add('bg-blue-500', 'text-white', 'border-blue-400');
+
+                    Papa.parse(e.target.files[0], { header: true, skipEmptyLines: true, complete: function(results) { processDimData(results.data); } }); 
+                }
+            });
+        }
+    </script>
+</body>
+</html>
