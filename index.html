@@ -878,7 +878,12 @@
 
             populateCompareSelect();
             renderYearSelector();
-            updateDashboard();
+            
+            // 🌟 เพิ่ม setTimeout ตรงนี้เพื่อให้เบราว์เซอร์มีเวลาเรนเดอร์โครงสร้างหน้าจอและคำนวณขนาดของ Canvas ก่อนที่ Chart.js จะวาดกราฟ
+            setTimeout(() => {
+                updateDashboard();
+            }, 150);
+
             showToast(msg, 'success');
         }
 
